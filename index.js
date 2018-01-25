@@ -771,10 +771,10 @@ function diceChallenge(message, target, coinage) {
     }
 
     // check for self challenge
-    //if (userData.username == target) {
-    //    message.channel.send(response + ', you can not challenge yourself.');
-    //    return;
-    //}
+    if (userData.username == target) {
+        message.channel.send(response + ', you can not challenge yourself.');
+        return;
+    }
 
     // find target in ledger
     var foundTarget = false;
