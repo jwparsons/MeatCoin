@@ -78,16 +78,16 @@ bot.on('message', (message) => {
             sell(message, directive);
         else if (command == '!dice' && directive == 'rules')
             diceRules(message);
-        else if (command == '!mcflip' && directive == 'rules')
-            mcFlipRules(message);
+        else if (command == '!flip' && directive == 'rules')
+            flipRules(message);
     }
     else if (splitMessage.length == 3) {
         const command = splitMessage[0];
         const directive = splitMessage[1];
         const coinage = splitMessage[2];
 
-        if (command == '!mcflip')
-            mcFlip(message, directive, coinage);
+        if (command == '!flip')
+            flip(message, directive, coinage);
     }
     else if (splitMessage.length > 3) {
         const command = splitMessage[0];
@@ -300,8 +300,8 @@ function help(message) {
     response += '\n\t\t!buy <amount m¢>';
     response += '\n\t\t!sell <amount m¢>';
     response += '\n\n\t#gamble';
-    response += '\n\t\t!mcflip rules';
-    response += '\n\t\t!mcflip <ribs/loins> <amount m¢>';
+    response += '\n\t\t!flip rules';
+    response += '\n\t\t!flip <ribs/loins> <amount m¢>';
     response += '\n\t\t!dice rules';
     response += '\n\t\t!dice challenge <username> <amount m¢>';
     response += '\n\t\t!dice accept <username> <amount m¢>';
@@ -664,12 +664,12 @@ function diceRules(message) {
     message.channel.send(response);
 }
 
-function mcFlipRules(message) {
+function flipRules(message) {
     var response = '```Call ribs/loins. Flip the MeatCoin. Meat your maker!```';
     message.channel.send(response);
 }
 
-function mcFlip(message, side, coinage) {
+function flip(message, side, coinage) {
     const id = message.member.user.id;
     var response = '<@' + id + '>';
 
