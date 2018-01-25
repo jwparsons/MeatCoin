@@ -468,7 +468,7 @@ function register(message) {
         // register
         var userData = {
             username: username,
-            gold: 0.0,
+            gold: 10.0,
             meatCoin: 0.0,
             isMining: false,
             channel: message.channel,
