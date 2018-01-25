@@ -111,10 +111,10 @@ function init() {
     populateDiceTable();
 
     // Meat Coin login
-    // bot.login('NDAzODUwMDIxMjkzNzg1MDg4.DUNWXg.gZO0tw4YCHk9SjamhoYgJn89quY');
+    bot.login('NDAzODUwMDIxMjkzNzg1MDg4.DUNWXg.gZO0tw4YCHk9SjamhoYgJn89quY');
 
     // mc test login
-    bot.login('NDA2MTUyNzAzMzY3MTg0Mzg0.DUuytA.2_jpD1kmiKnmCr80YaiA-H9yX6I');
+    // bot.login('NDA2MTUyNzAzMzY3MTg0Mzg0.DUuytA.2_jpD1kmiKnmCr80YaiA-H9yX6I');
 
     setInterval(mine, 60000);
     setInterval(mediumFluctuate, 37000);
