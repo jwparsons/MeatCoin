@@ -908,36 +908,39 @@ function diceAccept(message, target, coinage) {
     else
         outcome += target + ' rolls a ' + targetRoll[0] + ' ' + targetRoll[1] + '\n';
 
-    // accepter roll
-    const userRollA = Math.floor((Math.random() * 6) + 1);
-    const userRollB = Math.floor((Math.random() * 6) + 1);
-    var userRoll;
-    if (userRollA > userRollB)
-        userRoll = userRollA.toString() + userRollB.toString();
-    else
-        userRoll = userRollB.toString() + userRollA.toString();
-    if (userRoll == '21')
-        outcome += userData.username + ' rolls a MIA!!!\n';
-    else
-        outcome += userData.username + ' rolls a ' + userRoll[0] + ' ' + userRoll[1] + '\n';
+    // add suspense for second dice roll
+    setTimeout(function() {
+        // accepter roll
+        const userRollA = Math.floor((Math.random() * 6) + 1);
+        const userRollB = Math.floor((Math.random() * 6) + 1);
+        var userRoll;
+        if (userRollA > userRollB)
+            userRoll = userRollA.toString() + userRollB.toString();
+        else
+            userRoll = userRollB.toString() + userRollA.toString();
+        if (userRoll == '21')
+            outcome += userData.username + ' rolls a MIA!!!\n';
+        else
+            outcome += userData.username + ' rolls a ' + userRoll[0] + ' ' + userRoll[1] + '\n';
 
-    // result
-    if (diceTable[targetRoll] > diceTable[userRoll]) {
-        outcome += target + ' wins ' + amount + ' MeatCoin!!!';
-        ledger[targetID].meatCoin += amount;
-        ledger[id].meatCoin -= amount;
-    }
-    else if (diceTable[targetRoll] < diceTable[userRoll]) {
-        outcome += userData.username + ' wins ' + amount + ' MeatCoin!!!';
-        ledger[targetID].meatCoin -= amount;
-        ledger[id].meatCoin += amount;
-    }
-    else
-        outcome += 'Tie! Whoever posts the best meme wins!';
+        // result
+        if (diceTable[targetRoll] > diceTable[userRoll]) {
+            outcome += target + ' wins ' + amount + ' MeatCoin!!!';
+            ledger[targetID].meatCoin += amount;
+            ledger[id].meatCoin -= amount;
+        }
+        else if (diceTable[targetRoll] < diceTable[userRoll]) {
+            outcome += userData.username + ' wins ' + amount + ' MeatCoin!!!';
+            ledger[targetID].meatCoin -= amount;
+            ledger[id].meatCoin += amount;
+        }
+        else
+            outcome += 'Tie! Whoever posts the best meme wins!';
 
-    outcome += '```';
-    delete betTable[targetID];
-    message.channel.send(outcome);
+        outcome += '```';
+        delete betTable[targetID];
+        message.channel.send(outcome);
+    }, 2000);
 }
 
 function sendUser(message, target, coinage) {
