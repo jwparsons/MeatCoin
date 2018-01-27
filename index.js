@@ -24,6 +24,7 @@ var volume = {
     sold: 0.0,
     gambled: 0.0
 };
+var miners = 0;
 
 // setup
 init();
@@ -38,6 +39,14 @@ bot.on('message', (message) => {
     // check if server is busy
     if (!isReady)
         message.channel.send('`The MeatCoin server is busy. More memes = better service!`');
+
+    // check that message has at least 1 character
+    if (message.content.length == 0)
+        return;
+
+    // check that first character is a !
+    if (message.content[0] != '!')
+        return;
 
     // parse and execute appropriate command
     isReady = false;
@@ -204,24 +213,31 @@ function mine() {
 }
 
 function bigFluctuate() {
+    const priceAdjust = (1 - Math.random()/10.0);
+    const priceSave = price;
     if (Math.random() > 0.5)
-        price /= (1 - Math.random()/10.0);
+        price /= priceAdjust;
     else
-        price *= (1 - Math.random()/10.0);
+        price *= priceAdjust;
+    console.log('big: ' + (price - priceSave));
 }
 
 function mediumFluctuate() {
+    const priceAdjust = (1 - Math.random()/100.0);
     if (Math.random() > 0.5)
-        price /= (1 - Math.random()/100.0);
+        price /= priceAdjust;
     else
-        price *= (1 - Math.random()/100.0);
+        price *= priceAdjust;
+    console.log('med: ' + (price - priceSave));
 }
 
 function smallFluctuate() {
+    const priceAdjust = (1 - Math.random()/1000.0);
     if (Math.random() > 0.5)
-        price /= (1 - Math.random()/1000.0);
+        price /= priceAdjust;
     else
-        price *= (1 - Math.random()/1000.0);
+        price *= priceAdjust;
+    console.log('small: ' + (price - priceSave));
 }
 
 function saveUserData(path) {
@@ -283,7 +299,7 @@ process.on('uncaughtException', function(err) {
 function help(message) {
     var response = '';
     response += '```css\n';
-    response += '[MeatCoin v2.0]';
+    response += '[MeatCoin v2.1]';
     response += '\n\t#info';
     response += '\n\t\t!balance';
     response += '\n\t\t!history';
@@ -297,8 +313,8 @@ function help(message) {
     response += '\n\t\t!register';
     response += '\n\t\t!mine start';
     response += '\n\t\t!mine stop';
-    response += '\n\t\t!buy <amount m¢>';
-    response += '\n\t\t!sell <amount m¢>';
+    response += '\n\t\t!buy <amount m¢/max>';
+    response += '\n\t\t!sell <amount m¢/max>';
     response += '\n\n\t#gamble';
     response += '\n\t\t!flip rules';
     response += '\n\t\t!flip <ribs/loins> <amount m¢>';
@@ -316,7 +332,7 @@ function balance(message) {
     var response = '<@' + id + '>';
 
     // check user registration
-    if (!id in ledger) {
+    if (!(id in ledger)) {
         message.channel.send(response + ', you are not registered.');
         return;
     }
@@ -341,7 +357,7 @@ function history(message) {
     var response = '<@' + id + '>';
 
     // check user registration
-    if (!id in ledger) {
+    if (!(id in ledger)) {
         message.channel.send(response + ', you are not registered.');
         return;
     }
@@ -487,7 +503,7 @@ function mineStart(message) {
     var response = '<@' + id + '>';
 
     // check user registration
-    if (!id in ledger) {
+    if (!(id in ledger)) {
         message.channel.send(response + ', you are not registered.');
         return;
     }
@@ -504,6 +520,7 @@ function mineStart(message) {
         response = '```glsl\n' + userData.username;
         response += ' has started mining.';
         response += '```';
+        miners += 1;
     }
 
     message.channel.send(response);
@@ -514,7 +531,7 @@ function mineStop(message) {
     var response = '<@' + id + '>';
 
     // check user registration
-    if (!id in ledger) {
+    if (!(id in ledger)) {
         message.channel.send(response + ', you are not registered.');
         return;
     }
@@ -541,7 +558,7 @@ function buy(message, coinage) {
     var response = '<@' + id + '>';
 
     // check user registration
-    if (!id in ledger) {
+    if (!(id in ledger)) {
         message.channel.send(response + ', you are not registered.');
         return;
     }
@@ -551,13 +568,19 @@ function buy(message, coinage) {
     userData.channel = message.channel;
 
     // check valid number
-    if (isNaN(coinage)) {
+    if (isNaN(coinage) && coinage != 'max') {
         message.channel.send(response + ', that is an invalid number.');
         return;
     }
 
+    // check for max
+    var amount;
+    if (coinage == 'max')
+        amount  = (userData.gold / price) * (1 - fee);
+    else
+        amount = parseFloat(coinage);
+
     // check valid amount
-    const amount = parseFloat(coinage);
     if (amount <= 0.0) {
         message.channel.send(response + ', that is an invalid amount.');
         return;
@@ -578,16 +601,18 @@ function buy(message, coinage) {
     response +=  value.toFixed(2) + ' gold @ ' + price.toFixed(2) + ' gold.';
     response += '```';
 
-    // price
-    var priceAdjust = fee * price;
-    if (amount < 1.0)
-        priceAdjust = fee * price * Math.pow(amount, 2);
-    price += priceAdjust;
-
     // history
     if (userData.history.length > 9)
         userData.history.pop();
     userData.history.unshift('b' + ',' + amount.toFixed(2) + ',' + price.toFixed(2));
+
+    // price
+    var priceAdjust = fee * price;
+    if (amount < 1.0)
+        priceAdjust = fee * price * Math.pow(amount, 2);
+    priceAdjust /= miners + 1;
+    price += priceAdjust;
+    console.log('buy: ' + priceAdjust);
 
     // statistics
     volume.bought += amount;
@@ -601,7 +626,7 @@ function sell(message, coinage) {
     var response = '<@' + id + '>';
 
     // check user registration
-    if (!id in ledger) {
+    if (!(id in ledger)) {
         message.channel.send(response + ', you are not registered.');
         return;
     }
@@ -611,13 +636,19 @@ function sell(message, coinage) {
     userData.channel = message.channel;
 
     // check valid number
-    if (isNaN(coinage)) {
+    if (isNaN(coinage) && coinage != 'max') {
         message.channel.send(response + ', that is an invalid number.');
         return;
     }
 
+    // check for max
+    var amount;
+    if (coinage == 'max')
+        amount = userData.meatCoin;
+    else
+        amount = parseFloat(coinage);
+
     // check valid amount
-    const amount = parseFloat(coinage);
     if (amount <= 0.0) {
         message.channel.send(response + ', that is an invalid amount.');
         return;
@@ -638,16 +669,18 @@ function sell(message, coinage) {
     response += '@ ' + price.toFixed(2) + ' gold.'
     response += '```';
 
-    // price
-    var priceAdjust = fee * price;
-    if (amount < 1.0)
-        priceAdjust = fee * price * Math.pow(amount, 2);
-    price -= priceAdjust;
-
     // history
     if (userData.history.length > 9)
         userData.history.pop();
     userData.history.unshift('s' + ',' + amount.toFixed(2) + ',' + price.toFixed(2));
+
+    // price
+    var priceAdjust = fee * price;
+    if (amount < 1.0)
+        priceAdjust = fee * price * Math.pow(amount, 2);
+    priceAdjust /= miners + 1;
+    price -= priceAdjust;
+    console.log('sell: ' + -1 * priceAdjust);
 
     // statistics
     volume.sold += amount;
@@ -674,7 +707,7 @@ function flip(message, side, coinage) {
     var response = '<@' + id + '>';
 
     // check user registration
-    if (!id in ledger) {
+    if (!(id in ledger)) {
         message.channel.send(response + ', you are not registered.');
         return;
     }
@@ -734,6 +767,7 @@ function flip(message, side, coinage) {
     }
     response += '```';
 
+    volume.gambled += amount;
     message.channel.send(response);
 }
 
@@ -742,7 +776,7 @@ function diceChallenge(message, target, coinage) {
     var response = '<@' + id + '>';
 
     // check user registration
-    if (!id in ledger) {
+    if (!(id in ledger)) {
         message.channel.send(response + ', you are not registered.');
         return;
     }
@@ -810,7 +844,7 @@ function diceAccept(message, target, coinage) {
     var response = '<@' + id + '>';
 
     // check user registration
-    if (!id in ledger) {
+    if (!(id in ledger)) {
         message.channel.send(response + ', you are not registered.');
         return;
     }
@@ -907,13 +941,16 @@ function diceAccept(message, target, coinage) {
         outcome += target + ' rolls a MIA!!!\n';
     else
         outcome += target + ' rolls a ' + targetRoll[0] + ' ' + targetRoll[1] + '\n';
+    outcome += '```';
+    message.channel.send(outcome);
 
     // add suspense for second dice roll
+    var userRoll;
     setTimeout(function() {
+        outcome = '```glsl\n';
         // accepter roll
         const userRollA = Math.floor((Math.random() * 6) + 1);
         const userRollB = Math.floor((Math.random() * 6) + 1);
-        var userRoll;
         if (userRollA > userRollB)
             userRoll = userRollA.toString() + userRollB.toString();
         else
@@ -922,7 +959,13 @@ function diceAccept(message, target, coinage) {
             outcome += userData.username + ' rolls a MIA!!!\n';
         else
             outcome += userData.username + ' rolls a ' + userRoll[0] + ' ' + userRoll[1] + '\n';
+        outcome += '```';
+        message.channel.send(outcome);
+    }, 4000);
 
+    // add suspense for result
+    setTimeout(function() {
+        outcome = '```glsl\n';
         // result
         if (diceTable[targetRoll] > diceTable[userRoll]) {
             outcome += target + ' wins ' + amount + ' MeatCoin!!!';
@@ -936,11 +979,12 @@ function diceAccept(message, target, coinage) {
         }
         else
             outcome += 'Tie! Whoever posts the best meme wins!';
-
         outcome += '```';
-        delete betTable[targetID];
         message.channel.send(outcome);
     }, 2000);
+
+    delete betTable[targetID];
+    volume.gambled += amount;
 }
 
 function sendUser(message, target, coinage) {
@@ -948,7 +992,7 @@ function sendUser(message, target, coinage) {
     var response = '<@' + id + '>';
 
     // check user registration
-    if (!id in ledger) {
+    if (!(id in ledger)) {
         message.channel.send(response + ', you are not registered.');
         return;
     }
@@ -1007,3 +1051,25 @@ function sendUser(message, target, coinage) {
 
     message.channel.send(response);
 }
+
+// ::todo::
+// debt
+// dividends
+// double check buy/sell math
+// add send and gambling to history
+// make fluctuations non random? leaderboards by real gold only. need incentive
+// order leaderboard by real gold
+// price history
+// lottery
+// loans - interest - have to pay back by end of session or lose it all
+
+// ::notes::
+// the more the price grows, the more it fluctuates
+// but the rate of increase remains the same
+
+// ::ideas::
+// competing economies - who can make the most wealth?
+// cookie crpyto? app
+// cookie coin
+// cookie crypto could be meat coin type simulation
+// or track real market trends (prob not)
