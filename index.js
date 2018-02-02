@@ -122,6 +122,7 @@ function init() {
     parseLedger();
     parsePrice();
     populateDiceTable();
+    setInterval(mine, 60000);
 
     // Meat Coin login
     bot.login('NDAzODUwMDIxMjkzNzg1MDg4.DUNWXg.gZO0tw4YCHk9SjamhoYgJn89quY');
