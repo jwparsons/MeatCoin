@@ -18,13 +18,13 @@ var diceTable = {};
 
 // statistics
 var price;
-var inflation;
 var volume = {
     bought: 0.0,
     sold: 0.0,
     gambled: 0.0
 };
 var miners = 0;
+var registered = 0;
 
 // setup
 init();
@@ -32,6 +32,10 @@ var isReady = true;
 
 // handle user commands
 bot.on('message', (message) => {
+    // idk why this is necessary
+    if (!message.member.user)
+        return;
+
     // ignore messages from Meat Coin
     if (message.member.user.username == "Meat Coin")
         return;
@@ -65,14 +69,14 @@ bot.on('message', (message) => {
             printFee(message);
         else if (command == '!volume')
             printVolume(message);
-        else if (command == '!inflation')
-            printInflation(message);
         else if (command == '!leaderboard')
             leaderboard(message);
-        else if (command == '!advice')
-            advice(message);
         else if (command == '!register')
             register(message);
+        else if (command == '!victory')
+            victory(message);
+        else if (command == '!prize')
+            prize(message);
     }
     else if (splitMessage.length == 2) {
         const command = splitMessage[0];
@@ -124,10 +128,6 @@ function init() {
 
     // mc test login
     // bot.login('NDA2MTUyNzAzMzY3MTg0Mzg0.DUuytA.2_jpD1kmiKnmCr80YaiA-H9yX6I');
-
-    setInterval(mine, 60000);
-    setInterval(mediumFluctuate, 37000);
-    setInterval(smallFluctuate, 17000);
 }
 
 function parseLedger() {
@@ -153,15 +153,15 @@ function parseLedger() {
             };
             ledger[data[0]] = userData;
         }
+        registered += 1;
     }
 }
 
 function parsePrice() {
     const path = process.cwd();
-    const buffer = fs.readFileSync(path + "\\price.txt").toString().split('\n');
+    const buffer = fs.readFileSync(path + "\\price.txt").toString();
 
-    price = parseFloat(buffer[0].toString());
-    inflation = parseFloat(buffer[1].toString());
+    price = parseFloat(buffer);
 }
 
 function populateDiceTable() {
@@ -193,51 +193,22 @@ function mine() {
         return
 
     isReady = false;  
-    const magicNumber = Math.floor((Math.random() * 10) + 1);
+    const magicNumber = Math.floor((Math.random() * miners) + 1);
     var userData;
     var userGuess;
     Object.keys(ledger).forEach(function(key) {
         userData = ledger[key];
         if (userData.isMining == true) {
-            userGuess = Math.floor((Math.random() * 10) + 1);
+            userGuess = Math.floor((Math.random() * miners) + 1);
             if (userGuess == magicNumber) {
-                const reward = Math.floor((Math.random() * (10 + inflation)) + 1);
+                const reward = Math.floor((Math.random() * price) + 1);
                 var response = '<@' + key + '>' + ', you have mined ' + reward + ' gold!!!';
                 userData.gold += reward;
                 userData.channel.send(response);
             }
         }
     });
-    bigFluctuate();
     isReady = true;
-}
-
-function bigFluctuate() {
-    const priceAdjust = (1 - Math.random()/10.0);
-    const priceSave = price;
-    if (Math.random() > 0.5)
-        price /= priceAdjust;
-    else
-        price *= priceAdjust;
-    console.log('big: ' + (price - priceSave));
-}
-
-function mediumFluctuate() {
-    const priceAdjust = (1 - Math.random()/100.0);
-    if (Math.random() > 0.5)
-        price /= priceAdjust;
-    else
-        price *= priceAdjust;
-    console.log('med: ' + (price - priceSave));
-}
-
-function smallFluctuate() {
-    const priceAdjust = (1 - Math.random()/1000.0);
-    if (Math.random() > 0.5)
-        price /= priceAdjust;
-    else
-        price *= priceAdjust;
-    console.log('small: ' + (price - priceSave));
 }
 
 function saveUserData(path) {
@@ -276,7 +247,7 @@ function saveUserData(path) {
 
 function savePriceData(path) {
     var priceDataBuffer = '';
-    priceDataBuffer = price + '\n' + inflation;
+    priceDataBuffer = price;
     fs.writeFileSync(path + "\\price.txt", priceDataBuffer, function(err) {
     });
 }
@@ -299,16 +270,17 @@ process.on('uncaughtException', function(err) {
 function help(message) {
     var response = '';
     response += '```css\n';
-    response += '[MeatCoin v2.1]';
+    response += '[MeatCoin v2.2]';
     response += '\n\t#info';
     response += '\n\t\t!balance';
     response += '\n\t\t!history';
     response += '\n\t\t!price';
     response += '\n\t\t!fee';
     response += '\n\t\t!volume';
-    response += '\n\t\t!inflation';
     response += '\n\t\t!leaderboard';
-    response += '\n\t\t!advice';
+    response += '\n\n\t#weigners';
+    response += '\n\t\t!prize';
+    response += '\n\t\t!victory';
     response += '\n\n\t#brokerage';
     response += '\n\t\t!register';
     response += '\n\t\t!mine start';
@@ -407,11 +379,6 @@ function printVolume(message) {
     message.channel.send(response);
 }
 
-function printInflation(message) {
-    const response = '```glsl\nMeatCoin is +' + inflation + ' gold.```';
-    message.channel.send(response);
-}
-
 function leaderboard(message) {
     var response = '```glsl\n';
 
@@ -427,10 +394,10 @@ function leaderboard(message) {
         });
     }
 
-    // sort the users by unrealied gold total
+    // sort the users by realied gold total
     sortedLedger.sort(function (a, b) {
-        aScore = a.gold + a.meatCoin * price;
-        bScore = b.gold + b.meatCoin * price;
+        aScore = a.gold;
+        bScore = b.gold;
         if (aScore > bScore)
           return -1;
         if (aScore < bScore)
@@ -438,35 +405,18 @@ function leaderboard(message) {
         return 0;
     });
 
-    // return info of top 10 users
-    const end = Math.min(sortedLedger.length, 10);
+    // return info of all users
     var userTotal;
-    for (var i = 0; i < end; i++) {
-        userTotal = sortedLedger[i].gold + sortedLedger[i].meatCoin * price;
+    for (var i = 0; i < sortedLedger.length; i++) {
+        userTotal = sortedLedger[i].gold;
         response += (i + 1) + '. ' + sortedLedger[i].user + ' - ' + userTotal.toFixed(2) + ' gold';
-        if (i + 1 == end)
+        if (i + 1 == sortedLedger.length)
             response += '```';
         else
             response += '\n';
     }
     
     message.channel.send(response);
-}
-
-function advice(message) {
-    var response = '```';
-    const value = price - inflation;
-    if (value > 13.34)
-        response += 'SELL SELL SELL AHHHHHHHHHHHH!';
-    else if (value < 6.68)
-        response += 'CALL ME CRAZY BUT IT AINT NO LIE BABY BUY BUY BUY!'
-    else
-        response += 'HOLD HOLD HOLD ON TO YOUR BUTTS!'
-    response += '```';
-
-    message.channel.send(response, {
-        tts: true
-    });
 }
 
 function register(message) {
@@ -484,7 +434,7 @@ function register(message) {
         // register
         var userData = {
             username: username,
-            gold: 10.0,
+            gold: 1.0,
             meatCoin: 0.0,
             isMining: false,
             channel: message.channel,
@@ -493,7 +443,53 @@ function register(message) {
         ledger[id] = userData;
         response = '```glsl\n' + username;
         response += ' has succesfully registered.```';
+        registered += 1;
     }
+
+    message.channel.send(response);
+}
+
+function victory(message) {
+    const id = message.member.user.id;
+    var response = '<@' + id + '>';
+
+    // check user registration
+    if (!(id in ledger)) {
+        message.channel.send(response + ', you are not registered.');
+        return;
+    }
+
+    // update user channel
+    var userData = ledger[id];
+    userData.channel = message.channel;
+
+    if (userData.gold > 1000000) {
+        console.log("victory: " + username);
+        response = '```glsl\n' + username;
+        response += ' has won MeatCoin. Contact @jamespar for your prize you meaty bitch!```';
+        message.channel.send(response);
+        var path = process.cwd();
+        saveUserData(path);
+        savePriceData(path);
+        process.exit();
+    }
+    else {
+        response = '```glsl\n';
+        response += 'Victory requires 1,000,000 gold. Keep beating that meat!```';
+    }
+
+    message.channel.send(response);
+}
+
+function prize(message) {
+    const id = message.member.user.id;
+
+    // update user channel
+    var userData = ledger[id];
+    userData.channel = message.channel;
+
+    response = '```glsl\n';
+    response += 'The prize for winning MeatCoin is a Steam game of your choice (up to $10 value).```';
 
     message.channel.send(response);
 }
@@ -610,13 +606,11 @@ function buy(message, coinage) {
     var priceAdjust = fee * price;
     if (amount < 1.0)
         priceAdjust = fee * price * Math.pow(amount, 2);
-    priceAdjust /= miners + 1;
     price += priceAdjust;
     console.log('buy: ' + priceAdjust);
 
     // statistics
     volume.bought += amount;
-    inflation += priceAdjust;
 
     message.channel.send(response);
 }
@@ -678,13 +672,11 @@ function sell(message, coinage) {
     var priceAdjust = fee * price;
     if (amount < 1.0)
         priceAdjust = fee * price * Math.pow(amount, 2);
-    priceAdjust /= miners + 1;
     price -= priceAdjust;
     console.log('sell: ' + -1 * priceAdjust);
 
     // statistics
     volume.sold += amount;
-    inflation -= priceAdjust;
 
     message.channel.send(response);
 }
@@ -927,8 +919,7 @@ function diceAccept(message, target, coinage) {
         return;
     }
 
-    var outcome = '```glsl\n';
-
+    var targetOutcome = '```glsl\n';
     // challenger roll
     const targetRollA = Math.floor((Math.random() * 6) + 1)
     const targetRollB = Math.floor((Math.random() * 6) + 1)
@@ -938,16 +929,16 @@ function diceAccept(message, target, coinage) {
     else
         targetRoll = targetRollB.toString() + targetRollA.toString();
     if (targetRoll == '21')
-        outcome += target + ' rolls a MIA!!!\n';
+        targetOutcome += target + ' rolls a MIA!!!\n';
     else
-        outcome += target + ' rolls a ' + targetRoll[0] + ' ' + targetRoll[1] + '\n';
-    outcome += '```';
-    message.channel.send(outcome);
+        targetOutcome += target + ' rolls a ' + targetRoll[0] + ' ' + targetRoll[1] + '\n';
+    targetOutcome += '```';
+    message.channel.send(targetOutcome);
 
     // add suspense for second dice roll
     var userRoll;
     setTimeout(function() {
-        outcome = '```glsl\n';
+        var userOutcome = '```glsl\n';
         // accepter roll
         const userRollA = Math.floor((Math.random() * 6) + 1);
         const userRollB = Math.floor((Math.random() * 6) + 1);
@@ -956,12 +947,12 @@ function diceAccept(message, target, coinage) {
         else
             userRoll = userRollB.toString() + userRollA.toString();
         if (userRoll == '21')
-            outcome += userData.username + ' rolls a MIA!!!\n';
+            userOutcome += userData.username + ' rolls a MIA!!!\n';
         else
-            outcome += userData.username + ' rolls a ' + userRoll[0] + ' ' + userRoll[1] + '\n';
-        outcome += '```';
-        message.channel.send(outcome);
-    }, 4000);
+            userOutcome += userData.username + ' rolls a ' + userRoll[0] + ' ' + userRoll[1] + '\n';
+        userOutcome += '```';
+        message.channel.send(userOutcome);
+    }, 3000);
 
     // add suspense for result
     setTimeout(function() {
@@ -981,7 +972,7 @@ function diceAccept(message, target, coinage) {
             outcome += 'Tie! Whoever posts the best meme wins!';
         outcome += '```';
         message.channel.send(outcome);
-    }, 2000);
+    }, 6000);
 
     delete betTable[targetID];
     volume.gambled += amount;
