@@ -18,6 +18,7 @@ var diceTable = {};
 
 // statistics
 var price;
+var inflation;
 var volume = {
     bought: 0.0,
     sold: 0.0,
@@ -71,6 +72,8 @@ bot.on('message', (message) => {
             printVolume(message);
         else if (command == '!leaderboard')
             leaderboard(message);
+        else if (command == '!advice')
+            advice(message);
         else if (command == '!register')
             register(message);
         else if (command == '!victory')
@@ -123,6 +126,7 @@ function init() {
     parsePrice();
     populateDiceTable();
     setInterval(mine, 60000);
+    setInterval(fluctuate, 5000);
 
     // Meat Coin login
     bot.login('NDAzODUwMDIxMjkzNzg1MDg4.DUNWXg.gZO0tw4YCHk9SjamhoYgJn89quY');
@@ -160,9 +164,10 @@ function parseLedger() {
 
 function parsePrice() {
     const path = process.cwd();
-    const buffer = fs.readFileSync(path + "\\price.txt").toString();
+    const buffer = fs.readFileSync(path + "\\price.txt").toString().split('\n');
 
-    price = parseFloat(buffer);
+    price = parseFloat(buffer[0].toString());
+    inflation = parseFloat(buffer[1].toString());
 }
 
 function populateDiceTable() {
@@ -212,6 +217,16 @@ function mine() {
     isReady = true;
 }
 
+function fluctuate() {
+    const priceSave = price;
+    const priceAdjust = 1 + Math.random()/1000.0;
+    if (Math.random() > 0.5)
+        price /= priceAdjust;
+    else
+        price *= priceAdjust;
+    console.log('fluctuate: ' + (price - priceSave));
+}
+
 function saveUserData(path) {
     var userDataBuffer = '';
     var userData;
@@ -248,7 +263,7 @@ function saveUserData(path) {
 
 function savePriceData(path) {
     var priceDataBuffer = '';
-    priceDataBuffer = price;
+    priceDataBuffer = price + '\n' + inflation;
     fs.writeFileSync(path + "\\price.txt", priceDataBuffer, function(err) {
     });
 }
@@ -279,6 +294,7 @@ function help(message) {
     response += '\n\t\t!fee';
     response += '\n\t\t!volume';
     response += '\n\t\t!leaderboard';
+    response += '\n\t\t!advice';
     response += '\n\n\t#weigners';
     response += '\n\t\t!prize';
     response += '\n\t\t!victory';
@@ -397,8 +413,8 @@ function leaderboard(message) {
 
     // sort the users by realied gold total
     sortedLedger.sort(function (a, b) {
-        aScore = a.gold;
-        bScore = b.gold;
+        aScore = a.gold + a.meatCoin * price;
+        bScore = b.gold + b.meatCoin * price;
         if (aScore > bScore)
           return -1;
         if (aScore < bScore)
@@ -407,10 +423,12 @@ function leaderboard(message) {
     });
 
     // return info of all users
-    var userTotal;
+    var userGold;
+    var userMeatCoin;
     for (var i = 0; i < sortedLedger.length; i++) {
-        userTotal = sortedLedger[i].gold;
-        response += (i + 1) + '. ' + sortedLedger[i].user + ' - ' + userTotal.toFixed(2) + ' gold';
+        userGold = sortedLedger[i].gold.toFixed(2);
+        userMeatCoin = sortedLedger[i].meatCoin.toFixed(2);
+        response += (i + 1) + '. ' + sortedLedger[i].user + ' - ' + userGold + ' gold + ' + userMeatCoin + ' $mc';
         if (i + 1 == sortedLedger.length)
             response += '```';
         else
@@ -418,6 +436,20 @@ function leaderboard(message) {
     }
     
     message.channel.send(response);
+}
+
+function advice(message) {
+    var response = '```';
+    const value = price - inflation;
+    if (value > 0)
+        response += 'SELL SELL SELL AHHHHHHHHHHHH!';
+    else
+        response += 'CALL ME CRAZY BUT IT AINT NO LIE BABY BUY BUY BUY!'
+    response += '```';
+
+    message.channel.send(response, {
+        tts: true
+    });
 }
 
 function register(message) {
@@ -752,11 +784,13 @@ function flip(message, side, coinage) {
         userData.meatCoin += amount;
         response += ' has won ' + amount + ' MeatCoin!!!';
         price += priceAdjust;
+        console.log('flip: ' + priceAdjust);
     }
     else {
         userData.meatCoin -= amount;
         response += ' has lost ' + amount + ' MeatCoin. LOL!';
         price -= priceAdjust;
+        console.log('flip: -' + priceAdjust);
     }
     response += '```';
 
