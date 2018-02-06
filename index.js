@@ -199,13 +199,13 @@ function mine() {
         return
 
     isReady = false;  
-    const magicNumber = Math.floor((Math.random() * miners) + 1);
+    const magicNumber = Math.floor((Math.random() * 10) + 1);
     var userData;
     var userGuess;
     Object.keys(ledger).forEach(function(key) {
         userData = ledger[key];
         if (userData.isMining == true) {
-            userGuess = Math.floor((Math.random() * miners) + 1);
+            userGuess = Math.floor((Math.random() * 10) + 1);
             if (userGuess == magicNumber) {
                 const reward = Math.floor((Math.random() * price) + 1);
                 var response = '<@' + key + '>' + ', you have mined ' + reward + ' gold!!!';
