@@ -18,7 +18,6 @@ var diceTable = {};
 
 // statistics
 var price;
-var inflation;
 var volume = {
     bought: 0.0,
     sold: 0.0,
@@ -104,6 +103,8 @@ bot.on('message', (message) => {
 
         if (command == '!flip')
             flip(message, directive, coinage);
+        else if (message == '!hall of fame')
+            hallOfFame(message);
     }
     else if (splitMessage.length > 3) {
         const command = splitMessage[0];
@@ -167,7 +168,6 @@ function parsePrice() {
     const buffer = fs.readFileSync(path + "\\price.txt").toString().split('\n');
 
     price = parseFloat(buffer[0].toString());
-    inflation = parseFloat(buffer[1].toString());
 }
 
 function populateDiceTable() {
@@ -199,15 +199,18 @@ function mine() {
         return
 
     isReady = false;  
-    const magicNumber = Math.floor((Math.random() * 10) + 1);
+    const magicNumber = Math.floor((Math.random() * Math.max(miners, 10)) + 1);
     var userData;
     var userGuess;
     Object.keys(ledger).forEach(function(key) {
         userData = ledger[key];
         if (userData.isMining == true) {
-            userGuess = Math.floor((Math.random() * 10) + 1);
+            userGuess = Math.floor((Math.random() * Math.max(miners, 10)) + 1);
             if (userGuess == magicNumber) {
-                const reward = Math.floor((Math.random() * price) + 1);
+                // make a standard gaussian variable.     
+                var standard = gaussian(price/2, price/2);
+                const reward = Math.ceil(standard());
+
                 var response = '<@' + key + '>' + ', you have mined ' + reward + ' gold!!!';
                 userData.gold += reward;
                 userData.channel.send(response);
@@ -219,7 +222,7 @@ function mine() {
 
 function fluctuate() {
     const priceSave = price;
-    const priceAdjust = 1 + Math.random()/1000.0;
+    const priceAdjust = 1 + Math.random()/75.0;
     if (Math.random() > 0.5)
         price /= priceAdjust;
     else
@@ -263,7 +266,7 @@ function saveUserData(path) {
 
 function savePriceData(path) {
     var priceDataBuffer = '';
-    priceDataBuffer = price + '\n' + inflation;
+    priceDataBuffer = price + '\n';
     fs.writeFileSync(path + "\\price.txt", priceDataBuffer, function(err) {
     });
 }
@@ -286,7 +289,7 @@ process.on('uncaughtException', function(err) {
 function help(message) {
     var response = '';
     response += '```css\n';
-    response += '[MeatCoin v2.2]';
+    response += '[MeatCoin v2.4]';
     response += '\n\t#info';
     response += '\n\t\t!balance';
     response += '\n\t\t!history';
@@ -312,6 +315,8 @@ function help(message) {
     response += '\n\t\t!dice accept <username> <amount m¢>';
     response += '\n\n\t#coerce';
     response += '\n\t\t!send user <username> <amount m¢>';
+    response += '\n\n\t#legends';
+    response += '\n\t\t!hall of fame';
     response += '```';
     message.channel.send(response);
 }
@@ -440,12 +445,11 @@ function leaderboard(message) {
 
 function advice(message) {
     var response = '```';
-    const value = price - inflation;
-    if (value > 0)
+    const value = price;
+    if (Math.random() > 0.5)
         response += 'SELL SELL SELL AHHHHHHHHHHHH!';
     else
         response += 'CALL ME CRAZY BUT IT AINT NO LIE BABY BUY BUY BUY!'
-    response += '```';
 
     message.channel.send(response, {
         tts: true
@@ -496,7 +500,8 @@ function victory(message) {
     var userData = ledger[id];
     userData.channel = message.channel;
 
-    if (userData.gold > 1000000) {
+    const username = message.member.user.username;
+    if (userData.gold > 1000000000) {
         console.log("victory: " + username);
         response = '```glsl\n' + username;
         response += ' has won MeatCoin. Contact @jamespar for your prize you meaty bitch!```';
@@ -518,11 +523,14 @@ function prize(message) {
     const id = message.member.user.id;
 
     // update user channel
-    var userData = ledger[id];
-    userData.channel = message.channel;
+    if (id in ledger) {
+        var userData = ledger[id];
+        userData.channel = message.channel;
+    }
 
     response = '```glsl\n';
-    response += 'The prize for winning MeatCoin is a Steam game of your choice (up to $10 value).```';
+    //response += 'The prize for winning MeatCoin is a Steam game of your choice (up to $10 value).```';
+    response += 'No prize at this time lol```';
 
     message.channel.send(response);
 }
@@ -635,13 +643,6 @@ function buy(message, coinage) {
         userData.history.pop();
     userData.history.unshift('b' + ',' + amount.toFixed(2) + ',' + price.toFixed(2));
 
-    // price
-    var priceAdjust = fee * price;
-    if (amount < 1.0)
-        priceAdjust = fee * price * Math.pow(amount, 2);
-    price += priceAdjust;
-    console.log('buy: ' + priceAdjust);
-
     // statistics
     volume.bought += amount;
 
@@ -701,12 +702,6 @@ function sell(message, coinage) {
         userData.history.pop();
     userData.history.unshift('s' + ',' + amount.toFixed(2) + ',' + price.toFixed(2));
 
-    // price
-    var priceAdjust = fee * price;
-    if (amount < 1.0)
-        priceAdjust = fee * price * Math.pow(amount, 2);
-    price -= priceAdjust;
-    console.log('sell: ' + -1 * priceAdjust);
 
     // statistics
     volume.sold += amount;
@@ -773,28 +768,27 @@ function flip(message, side, coinage) {
     else
         flip = 'loins';
 
-    // price adjustment
-    var priceAdjust = fee * price;
-    if (amount < 1.0)
-        priceAdjust = fee * price * Math.pow(amount, 2);
 
     // result
     response = '```glsl\n' + userData.username;
     if (side == flip) {
         userData.meatCoin += amount;
         response += ' has won ' + amount + ' MeatCoin!!!';
-        price += priceAdjust;
-        console.log('flip: ' + priceAdjust);
     }
     else {
         userData.meatCoin -= amount;
         response += ' has lost ' + amount + ' MeatCoin. LOL!';
-        price -= priceAdjust;
-        console.log('flip: -' + priceAdjust);
     }
     response += '```';
 
     volume.gambled += amount;
+    message.channel.send(response);
+}
+
+function hallOfFame(message) {
+    var response = '```glsl\n';
+    response += 'Winner of MeatCoin 2.2: The old razzmataz';
+    response += '```';
     message.channel.send(response);
 }
 
@@ -1078,6 +1072,35 @@ function sendUser(message, target, coinage) {
     message.channel.send(response);
 }
 
+function gaussian(mean, stdev) {
+    var y2;
+    var use_last = false;
+    return function() {
+        var y1;
+        if(use_last) {
+           y1 = y2;
+           use_last = false;
+        }
+        else {
+            var x1, x2, w;
+            do {
+                 x1 = 2.0 * Math.random() - 1.0;
+                 x2 = 2.0 * Math.random() - 1.0;
+                 w  = x1 * x1 + x2 * x2;               
+            } while( w >= 1.0);
+            w = Math.sqrt((-2.0 * Math.log(w))/w);
+            y1 = x1 * w;
+            y2 = x2 * w;
+            use_last = true;
+       }
+
+       var retval = mean + stdev * y1;
+       if(retval > 0) 
+           return retval;
+       return -retval;
+   }
+}
+
 // ::todo::
 // debt
 // dividends
@@ -1088,6 +1111,10 @@ function sendUser(message, target, coinage) {
 // price history
 // lottery
 // loans - interest - have to pay back by end of session or lose it all
+// hall of fame: billy won v2.2
+// add debt feature (shorting) loan?
+// mine if registered
+// buy chance cards
 
 // ::notes::
 // the more the price grows, the more it fluctuates
