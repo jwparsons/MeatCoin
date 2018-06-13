@@ -1,9 +1,3 @@
-// Meat Coin add link
-// https://discordapp.com/api/oauth2/authorize?client_id=403850021293785088&scope=bot&permissions=1
-
-// mc test add link
-// https://discordapp.com/api/oauth2/authorize?client_id=406152703367184384&scope=bot&permissions=1
-
 const fs = require('fs');
 const Discord = require('discord.js');
 const bot = new Discord.Client();
@@ -123,6 +117,7 @@ bot.on('message', (message) => {
 });
 
 function init() {
+    const secret = parseSecret();
     parseLedger();
     parsePrice();
     populateDiceTable();
@@ -130,10 +125,14 @@ function init() {
     setInterval(fluctuate, 5000);
 
     // Meat Coin login
-    bot.login('NDAzODUwMDIxMjkzNzg1MDg4.DUNWXg.gZO0tw4YCHk9SjamhoYgJn89quY');
+    bot.login(secret);
+}
 
-    // mc test login
-    // bot.login('NDA2MTUyNzAzMzY3MTg0Mzg0.DUuytA.2_jpD1kmiKnmCr80YaiA-H9yX6I');
+function parseSecret() {
+    const path = process.cwd();
+    const buffer = fs.readFileSync(path + "\\secret.txt").toString().split('\n');
+
+    price = parseFloat(buffer[0].toString());
 }
 
 function parseLedger() {
