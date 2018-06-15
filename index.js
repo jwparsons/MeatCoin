@@ -117,7 +117,7 @@ bot.on('message', (message) => {
 });
 
 function init() {
-    const secret = parseSecret();
+    const token = parseToken();
     parseLedger();
     parsePrice();
     populateDiceTable();
@@ -125,19 +125,18 @@ function init() {
     setInterval(fluctuate, 5000);
 
     // Meat Coin login
-    bot.login(secret);
+    bot.login(token);
 }
 
-function parseSecret() {
+function parseToken() {
     const path = process.cwd();
-    const buffer = fs.readFileSync(path + "\\secret.txt").toString().split('\n');
-
-    price = parseFloat(buffer[0].toString());
+    const buffer = fs.readFileSync(path + "\\data\\token.txt").toString().split('\n');
+    return buffer[0]
 }
 
 function parseLedger() {
     var path = process.cwd();
-    var buffer = fs.readFileSync(path + "\\ledger.txt");
+    var buffer = fs.readFileSync(path + "\\data\\ledger.txt");
     var lines = buffer.toString().split("\n");
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i].replace('\r', '');
@@ -164,7 +163,7 @@ function parseLedger() {
 
 function parsePrice() {
     const path = process.cwd();
-    const buffer = fs.readFileSync(path + "\\price.txt").toString().split('\n');
+    const buffer = fs.readFileSync(path + "\\data\\price.txt").toString().split('\n');
 
     price = parseFloat(buffer[0].toString());
 }
