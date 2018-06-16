@@ -25,11 +25,11 @@ Running a Discord Bot requires [NodeJS](https://nodejs.org/en/) (for this tutori
 1. Type **!help** in your Discord server to see the commands.
 
 
-## MeatCoin Demo
+## Demo
 [![MeatCoin Demo](https://jwparsons.bitbucket.io/style/images/projects/meatcoin/demo_repo_tn.png)](https://vimeo.com/275358647 "MeatCoin Demo - click to watch!")
 
 
-## MeatCoin In Action
+## In Action
 [![MeatCoin In Action](https://jwparsons.bitbucket.io/style/images/projects/meatcoin/action_repo_tn.png)](https://vimeo.com/275358719 "MeatCoin In Action - click to watch!")
 
 
