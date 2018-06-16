@@ -257,7 +257,7 @@ function saveUserData(path) {
         });
 
         userDataBuffer = userDataBuffer.substring(0, userDataBuffer.length - 1);
-        fs.writeFileSync(path + "\\ledger.txt", userDataBuffer, function(err) {
+        fs.writeFileSync(path + "\\data\\ledger.txt", userDataBuffer, function(err) {
         }); 
     }
 }
@@ -265,7 +265,7 @@ function saveUserData(path) {
 function savePriceData(path) {
     var priceDataBuffer = '';
     priceDataBuffer = price + '\n';
-    fs.writeFileSync(path + "\\price.txt", priceDataBuffer, function(err) {
+    fs.writeFileSync(path + "\\data\\price.txt", priceDataBuffer, function(err) {
     });
 }
 
