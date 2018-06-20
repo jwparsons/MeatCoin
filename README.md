@@ -5,7 +5,7 @@ MeatCoin
 
 ## Introduction
 This repository contains the neccesary code for creating a MeatCoin Discord bot.
-MeatCoin is a text-based Cryptocurrency trading simulator which runs on Discord.
+MeatCoin is a text-based Cryptocurrency trading simulator for Discord.
 You will find instructions below for setting up MeatCoin on your own server and how to play.
 
 
