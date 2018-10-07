@@ -1,1 +1,1 @@
-<insert token here>
+<insert client secret here>
