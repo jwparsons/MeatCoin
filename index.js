@@ -196,7 +196,7 @@ function mine() {
     if (!isReady)
         return
 
-    isReady = false;  
+    isReady = false;
     const magicNumber = Math.floor((Math.random() * Math.max(miners, 10)) + 1);
     var userData;
     var userGuess;
@@ -205,7 +205,7 @@ function mine() {
         if (userData.isMining == true) {
             userGuess = Math.floor((Math.random() * Math.max(miners, 10)) + 1);
             if (userGuess == magicNumber) {
-                // make a standard gaussian variable.     
+                // make a standard gaussian variable.
                 var standard = gaussian(price/2, price/2);
                 const reward = Math.ceil(standard());
 
@@ -220,12 +220,24 @@ function mine() {
 
 function fluctuate() {
     const priceSave = price;
+    var goldTotal = 0;
+    var meatTotal = 0;
+    var userData;
+    if (Object.keys(ledger).length > 0)
+        Object.keys(ledger).forEach(function(key) {
+            userData = ledger[key];
+            goldTotal += parseFloat(userData.gold.toFixed(2));
+            meatTotal += parseFloat(userData.meatCoin.toFixed(2));
+          });
+
     const priceAdjust = 1 + Math.random()/75.0;
     if (Math.random() > 0.5)
         price /= priceAdjust;
     else
         price *= priceAdjust;
     console.log('fluctuate: ' + (price - priceSave));
+    console.log('Gold in Market: ' + goldTotal);
+    console.log('Meat in Market: ' + meatTotal);
 }
 
 function saveUserData(path) {
@@ -258,7 +270,7 @@ function saveUserData(path) {
 
         userDataBuffer = userDataBuffer.substring(0, userDataBuffer.length - 1);
         fs.writeFileSync(path + "\\data\\ledger.txt", userDataBuffer, function(err) {
-        }); 
+        });
     }
 }
 
@@ -275,7 +287,7 @@ process.on('SIGINT', function() {
     savePriceData(path);
     process.exit();
 });
-   
+
 process.on('uncaughtException', function(err) {
     console.log(err);
     var path = process.cwd();
@@ -340,7 +352,7 @@ function balance(message) {
     response += '\t' + userMeatCoin.toFixed(2) + ' MeatCoin\n';
     response += '\t' + userValue.toFixed(2) + ' unrealized';
     response += '```';
-    
+
     message.channel.send(response);
 }
 
@@ -437,7 +449,7 @@ function leaderboard(message) {
         else
             response += '\n';
     }
-    
+
     message.channel.send(response);
 }
 
@@ -1084,7 +1096,7 @@ function gaussian(mean, stdev) {
             do {
                  x1 = 2.0 * Math.random() - 1.0;
                  x2 = 2.0 * Math.random() - 1.0;
-                 w  = x1 * x1 + x2 * x2;               
+                 w  = x1 * x1 + x2 * x2;
             } while( w >= 1.0);
             w = Math.sqrt((-2.0 * Math.log(w))/w);
             y1 = x1 * w;
@@ -1093,7 +1105,7 @@ function gaussian(mean, stdev) {
        }
 
        var retval = mean + stdev * y1;
-       if(retval > 0) 
+       if(retval > 0)
            return retval;
        return -retval;
    }
