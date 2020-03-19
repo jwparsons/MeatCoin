@@ -14,7 +14,6 @@ var diceTable = {};
 var price;
 var time;
 var meatTotalLast = 0;
-//var originTime;
 var volume = {
     bought: 0.0,
     sold: 0.0,
@@ -125,11 +124,6 @@ function init() {
     parsePrice();
     parseTime();
     meatState();
-    /*
-    if (originTime==0){
-      originTime = new Date().getTime();
-    }
-    */
     populateDiceTable();
     setInterval(timeIncrement, 1000);
     setInterval(mine, 60000);
@@ -250,8 +244,6 @@ function fluctuate() {
     const priceSave = price;
     var goldTotal = 0;
     var meatTotal = 0;
-    //var currentTime = new Date().getTime() ;
-    //var timeSinceOrigin = (parseFloat(originTime) - currentTime)/-1000;
     var userData;
     if (Object.keys(ledger).length > 0)
         Object.keys(ledger).forEach(function(key) {
@@ -266,7 +258,7 @@ function fluctuate() {
     if (adjuster < 0.6)
         price /= priceAdjust;
     //Rare chance of large "hyper" fluctuation
-    else if (adjuster > .99) {
+    else if (adjuster > .995) {
         hyperAdjuster = 1 + Math.random()/2;
         console.log("HYPER! " + hyperAdjuster);
         if (Math.random() > 0.5) {
@@ -285,8 +277,6 @@ function fluctuate() {
     console.log('fluctuate: ' + (price - priceSave));
     console.log('Gold in Market: ' + goldTotal);
     console.log('Meat in Market: ' + meatTotal);
-    //console.log('Time Market Open: ' + originTime);
-    //console.log('Time since Market Open: ' + timeSinceOrigin);
     console.log('Total Time Market Open: ' + time);
 }
 
