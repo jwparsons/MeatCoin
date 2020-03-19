@@ -254,24 +254,29 @@ function fluctuate() {
     //Adjust by random fluctuations, trending down for deflation:
     const priceAdjust = 1 + Math.random()/75.0;
     var adjuster = Math.random();
-    var hyperAdjuster;
-    if (adjuster < 0.55)
+    var hyperAdjuster=" ";
+    if (adjuster < 0.501)
         price /= priceAdjust;
     //Rare chance of large "hyper" fluctuation
-    else if (adjuster > .995) {
+    else if (adjuster > .997) {
         hyperAdjuster = 1 + Math.random()/2;
         console.log("HYPER! " + hyperAdjuster);
+        var adjustPrint = 0;
         if (Math.random() > 0.5) {
             price /= hyperAdjuster;
+            adjustPrint= (1/hyperAdjuster)*100 + "%";
         } else {
             price *= hyperAdjuster;
+            adjustPrint= (hyperAdjuster)*100 + "%";
         }
+//        const response = '```glsl\nHYPER Adjustment: ```'+ adjustPrint;
+//        message.channel.send(response);
     } else {
         price *= priceAdjust;
     }
     //Adjust for total market, scaled down by 5:
     if (meatTotal > 0) {
-      price = price*((2*meatTotal+meatTotal)/(2*meatTotal+meatTotalLast));
+      price = price*((8*meatTotal+meatTotal)/(8*meatTotal+meatTotalLast));
     }
     meatTotalLast = meatTotal;
     console.log('fluctuate: ' + (price - priceSave));
