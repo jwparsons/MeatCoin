@@ -99,6 +99,8 @@ bot.on('message', (message) => {
             diceRules(message);
         else if (command == '!flip' && directive == 'rules')
             flipRules(message);
+        else if (command == '!market' && directive == 'rules')
+            marketRules(message);
     }
     else if (splitMessage.length == 3) {
         const command = splitMessage[0];
@@ -115,8 +117,8 @@ bot.on('message', (message) => {
         const command = splitMessage[0];
         if(splitMessage.length == 4 && command == '!post'){
             const directive = splitMessage[1];
-            const price = splitMessage[2]
-            const coinage = splitMessage[3];
+            const coinage = splitMessage[2];
+            const price = splitMessage[3]
             post(message, directive, price, coinage)
         }
         else{
@@ -207,6 +209,11 @@ if (Object.keys(market[0]).length > 0) {
 }
 response += '```';
 message.channel.send(response);
+}
+
+function marketRules(message){ 
+    var response = '```!post buy/sell and set quantity then price, buyers lose out on price differential so be careful!\nNo fee for posting/matching, but 7% per adjustment incl. cancellations.```';
+    message.channel.send(response);
 }
 
 function saveMarketData(path) {
@@ -468,6 +475,8 @@ function help(message) {
     response += '\n\t\t!buy <amount m¢/max>';
     response += '\n\t\t!sell <amount m¢/max>';
     response += '\n\t\t!post <buy/sell/adjust> <price> <amount m¢>'
+    response += '\n\t\t!market'
+    response += '\n\t\t!market rules'
     response += '\n\n\t#gamble';
     response += '\n\t\t!flip rules';
     response += '\n\t\t!flip <ribs/loins> <amount m¢>';
@@ -1003,8 +1012,8 @@ function post(message, command, price, coinage){
         var userData = ledger[id];
         market[0][id] = {
                 username: ledger[id].username,
-                price: price,
-                quantity: coinage
+                price: parseFloat(price),
+                quantity: parseFloat(coinage)
                 };
 
         // history not sure if we want this in history here, probably in processMarket()....
@@ -1052,8 +1061,8 @@ function post(message, command, price, coinage){
         userData.meatCoin -= value;
         market[1][id] = {
                 username: ledger[id].username,
-                price: price,
-                quantity: coinage
+                price: parseFloat(price),
+                quantity: parseFloat(coinage)
                 };
 
         // history not sure if we want this in history here, probably in processMarket()....
@@ -1167,6 +1176,80 @@ function post(message, command, price, coinage){
     }
 
     message.channel.send(response);
+    processMarket();
+}
+
+function processMarket(){
+    var buyers = market[0];
+    var sellers = market[1];
+    //iterate through buyers
+    if (Object.keys(buyers).length > 0) {
+        Object.keys(buyers).forEach(function(Bkey) {
+            //iterate through sellers
+            if (Object.keys(sellers).length > 0) {
+                Object.keys(sellers).forEach(function(Skey) {
+                    // check if we can make a deal
+                    if(buyers[Bkey].price >= sellers[Skey].price){ //price match
+                        var negPrice = buyers[Bkey].price; //probably won't happen too much, but good to be safe, buyers lose
+                        //Buying > Selling
+                        if(buyers[Bkey].quantity > sellers[Skey].quantity){ 
+                            var buyerData = ledger[Bkey];
+                            var sellerData = ledger[Skey];
+                            //credit both parties as they have already paid
+                            buyerData.meatCoin += parseFloat(sellers[Skey].quantity);
+                            volume.bought += parseFloat(sellers[Skey].quantity);
+                            sellerData.gold += sellers[Skey].quantity * negPrice;
+                            if (buyerData.history.length > 9)
+                                buyerData.history.pop();
+                            buyerData.history.unshift('b' + ',' + parseFloat(sellers[Skey].quantity).toFixed(2) + ',' + negPrice.toFixed(2));
+                            if (sellerData.history.length > 9)
+                                sellerData.history.pop();
+                            sellerData.history.unshift('s' + ',' + parseFloat(sellers[Skey].quantity).toFixed(2) + ',' + negPrice.toFixed(2));
+                            //decrease buyer quantity by amount sold, remove seller posting
+                            buyers[Bkey].quantity -= sellers[Skey].quantity;
+                            delete sellers[Skey];
+                        }
+                        //Selling > Buying
+                        else if (sellers[Skey].quantity > buyers[Bkey].quantity){
+                            var buyerData = ledger[Bkey];
+                            var sellerData = ledger[Skey];
+                            //credit both parties as they have already paid
+                            buyerData.meatCoin += parseFloat(buyers[Bkey].quantity);
+                            volume.bought += parseFloat(buyers[Bkey].quantity);
+                            sellerData.gold += buyers[Bkey].quantity * negPrice;
+                            if (buyerData.history.length > 9)
+                                buyerData.history.pop();
+                            buyerData.history.unshift('b' + ',' + parseFloat(buyers[Bkey].quantity).toFixed(2) + ',' + negPrice.toFixed(2));
+                            if (sellerData.history.length > 9)
+                                sellerData.history.pop();
+                            sellerData.history.unshift('s' + ',' + parseFloat(buyers[Bkey].quantity).toFixed(2) + ',' + negPrice.toFixed(2));
+                            //decrease seller quantity by amount sold, remove buyer posting
+                            sellers[Skey].quantity -= buyers[Bkey].quantity;
+                            delete buyers[Bkey];
+                        }
+                        //equal
+                        else{
+                            var buyerData = ledger[Bkey];
+                            var sellerData = ledger[Skey];
+                            //credit both parties as they have already paid
+                            buyerData.meatCoin += parseFloat(buyers[Bkey].quantity);
+                            volume.bought += parseFloat(buyers[Bkey].quantity);
+                            sellerData.gold += buyers[Bkey].quantity * negPrice;
+                            if (buyerData.history.length > 9)
+                                buyerData.history.pop();
+                            buyerData.history.unshift('b' + ',' + parseFloat(buyers[Bkey].quantity).toFixed(2) + ',' + negPrice.toFixed(2));
+                            if (sellerData.history.length > 9)
+                                sellerData.history.pop();
+                            sellerData.history.unshift('s' + ',' + parseFloat(buyers[Bkey].quantity).toFixed(2) + ',' + negPrice.toFixed(2));
+                            //decrease seller quantity by amount sold, remove buyer posting
+                            delete sellers[Skey];
+                            delete buyers[Bkey];
+                        }
+                    }
+                })
+            }
+        });
+    }
 }
 
 function hallOfFame(message) {
