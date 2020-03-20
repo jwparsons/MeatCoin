@@ -854,7 +854,7 @@ function flip(message, side, coinage) {
 
 function hallOfFame(message) {
     var response = '```glsl\n';
-    response += 'Winner of MeatCoin 2.2: The old razzmataz';
+    response += 'Winner of MeatCoin 2.2: The old razzmataz\n';
     response += 'Winner of MeatCoin 3, Reloaded: FatalBagel';
     response += '```';
     message.channel.send(response);
