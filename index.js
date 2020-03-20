@@ -4,6 +4,7 @@ const bot = new Discord.Client();
 
 // constants
 const fee = 0.05;
+const postFee = 0.07;
 
 // user data
 var ledger = {};
@@ -30,6 +31,9 @@ var isReady = true;
 
 // handle user commands
 bot.on('message', (message) => {
+    // idk why this is necessary
+    if (!message.member)
+        return;
     // idk why this is necessary
     if (!message.member.user)
         return;
@@ -103,23 +107,31 @@ bot.on('message', (message) => {
 
         if (command == '!flip')
             flip(message, directive, coinage);
-        if (command == '!post') //!post buy/sell x
-            post(message, directive, coinage)
         else if (message == '!hall of fame')
             hallOfFame(message);
     }
     else if (splitMessage.length > 3) {
-        const command = splitMessage[0];
-        const directive = splitMessage[1];
-        const username = splitMessage.slice(2, splitMessage.length - 1).join(' ');
-        const coinage = splitMessage[splitMessage.length - 1];
 
-        if (command == '!dice' && directive == 'challenge')
-            diceChallenge(message, username, coinage);
-        else if (command == '!dice' && directive == 'accept')
-            diceAccept(message, username, coinage);
-        else if (command == '!send' && directive == 'user')
-            sendUser(message, username, coinage);
+        const command = splitMessage[0];
+        if(splitMessage.length == 4 && command == '!post'){
+            const directive = splitMessage[1];
+            const price = splitMessage[2]
+            const coinage = splitMessage[3];
+            post(message, directive, price, coinage)
+        }
+        else{
+            const directive = splitMessage[1];
+            const username = splitMessage.slice(2, splitMessage.length - 1).join(' ');
+            const price = splitMessage[2]
+            const coinage = splitMessage[splitMessage.length - 1];
+    
+            if (command == '!dice' && directive == 'challenge')
+                diceChallenge(message, username, coinage);
+            else if (command == '!dice' && directive == 'accept')
+                diceAccept(message, username, coinage);
+            else if (command == '!send' && directive == 'user')
+                sendUser(message, username, coinage);
+            }
     }
     isReady = true;
 });
@@ -127,6 +139,7 @@ bot.on('message', (message) => {
 function init() {
     const token = parseToken();
     parseLedger();
+    parseSupply();
     parsePrice();
     parseTime();
     meatState();
@@ -179,25 +192,47 @@ function parseSupply(message) {
 }
 
 function printMarket(message) {
-parseSupply();
 var response = '```glsl\nGET YER FLESH HERE!\n';
-// create array of unsorted users
-var buyerData = market[0];
-var sellerData = market[1];
-if (Object.keys(sellerData).length > 0) {
-    response += 'Seller\tQUANTITY\tPRICE\n'
-    Object.keys(sellerData).forEach(function(key) { 
-        response += sellerData[key].username + '\t' + sellerData[key].quantity + '\t' + sellerData[key].price + '\n';
+if (Object.keys(market[1]).length > 0) {
+    response += 'SELLERS'.padEnd(18,'-') + '+' + 'QUANTITY'.padStart(20,'-') + '+' + 'PRICE'.padStart(14,'-') + '+\n';
+    Object.keys(market[1]).forEach(function(key) { 
+        response += market[1][key].username.padEnd(18,' ') + '|' + String(market[1][key].quantity).padStart(20,' ') + '|' + String(market[1][key].price).padStart(14,' ') + '|\n';
     });
 }
-if (Object.keys(buyerData).length > 0) {
-    response += 'BUYER\tQUANTITY\tPRICE\n'
-    Object.keys(buyerData).forEach(function(key) {
-        response += buyerData[key].username + '\t' + buyerData[key].quantity + '\t' + buyerData[key].price + '\n';
+if (Object.keys(market[0]).length > 0) {
+    response += 'BUYERS'.padEnd(18,'-') + '+' + 'QUANTITY'.padStart(20,'-') + '+' + 'PRICE'.padStart(14,'-') + '+\n';
+    Object.keys(market[0]).forEach(function(key) {
+        response += market[0][key].username.padEnd(18,' ') + '|' + String(market[0][key].quantity).padStart(20,' ') + '|' + String(market[0][key].price).padStart(14,' ') + '|\n';
     });
 }
 response += '```';
 message.channel.send(response);
+}
+
+function saveMarketData(path) {
+    var postingDataBuffer = '';
+    var postingData;
+    for (var i = market.length - 1; i >= 0; i--) {
+        if (Object.keys(market[i]).length > 0) {
+            Object.keys(market[i]).forEach(function(key) {
+                postingData = market[i][key];
+                postingDataBuffer += key;
+                postingDataBuffer += '\t';
+                postingDataBuffer += postingData.username;
+                postingDataBuffer += '\t';
+                postingDataBuffer += (i ? 'S' : 'B');
+                postingDataBuffer += '\t';
+                postingDataBuffer += parseFloat(postingData.price).toFixed(4);
+                postingDataBuffer += '\t';
+                postingDataBuffer += parseFloat(postingData.quantity).toFixed(4);
+                postingDataBuffer += '\n';
+            });
+
+            postingDataBuffer = postingDataBuffer.substring(0, postingDataBuffer.length);
+            fs.writeFileSync(path + "\\data\\meatMarket.txt", postingDataBuffer, function(err) {
+            });
+        }
+    }
 }
 
 function parseLedger() {
@@ -398,6 +433,7 @@ process.on('SIGINT', function() {
     saveUserData(path);
     savePriceData(path);
     saveTimeData(path);
+    saveMarketData(path);
     process.exit();
 });
 
@@ -406,6 +442,7 @@ process.on('uncaughtException', function(err) {
     var path = process.cwd();
     saveUserData(path);
     savePriceData(path);
+    saveMarketData(path);
     process.exit();
 });
 
@@ -430,6 +467,7 @@ function help(message) {
     response += '\n\t\t!mine stop';
     response += '\n\t\t!buy <amount m¢/max>';
     response += '\n\t\t!sell <amount m¢/max>';
+    response += '\n\t\t!post <buy/sell/adjust> <price> <amount m¢>'
     response += '\n\n\t#gamble';
     response += '\n\t\t!flip rules';
     response += '\n\t\t!flip <ribs/loins> <amount m¢>';
@@ -512,7 +550,7 @@ function printPrice(message) {
 }
 
 function printFee(message) {
-    const response = '```glsl\nThe fee to buy/sell MeatCoin is 5 %.```';
+    const response = '```glsl\nThe fee to buy/sell MeatCoin is 5 %.\nThere is NO FEE for posting on the meatMarket, but you will lose 7% for adjustments! (incl. cancellations)```';
     message.channel.send(response);
 }
 
@@ -908,7 +946,7 @@ function flip(message, side, coinage) {
     message.channel.send(response);
 }
 
-function post(message, command, coinage){
+function post(message, command, price, coinage){
 
     const id = message.member.user.id;
     var response = '<@' + id + '>';
@@ -923,12 +961,206 @@ function post(message, command, coinage){
     var userData = ledger[id];
     userData.channel = message.channel;
 
+    // check valid number
+    if (isNaN(coinage) || isNaN(price)) {
+        message.channel.send(response + ', that is an invalid number.');
+        return;
+    }
+
+    amount = parseFloat(coinage);
+    floatPrice = parseFloat(price);
+
     if (command == 'buy'){
-        parseSupply();
-        response += ', is buyin\' who\'s sellin\'?';
+        // check valid amount
+        if (amount <= 0.0) {
+            message.channel.send(response + ', that is an invalid amount.');
+            return;
+        }
+        // check user funds
+        const value = (amount * floatPrice);
+        if (userData.gold < value) {
+            message.channel.send(response + ', you have insufficient funds. ' + value + ' gold is required.');
+            return;
+        }
+        //check that the user is not already buying
+        if (id in market[0]){
+            response += ', you can\'t create a buy posting, you are already buying. Use !post adjust.\n';
+            message.channel.send(response);
+            message.author.send('Your posting:\n' + id.padStart(18,'0') + '\tB ' + String(market[0][id].quantity).padStart(10,' ') + '\t@' + String(market[0][id].price).padStart(8,' ') + '\n');
+            return;
+        }
+        //check that the user is not also selling
+        if (id in market[1]){
+            response += ', you can\'t create a buy posting, you are already selling. ya dingus!\n';
+            message.channel.send(response);
+            message.author.send('Your posting:\n' + id.padStart(18,'0') + '\tS ' + String(market[1][id].quantity).padStart(10,' ') + '\t@' + String(market[1][id].price).padStart(8,' ') + '\n');
+            return;
+        }
+        response += ', is buyin\' who\'s sellin\'?';    
+
+        // ledger
+        userData.gold -= value;
+        var userData = ledger[id];
+        market[0][id] = {
+                username: ledger[id].username,
+                price: price,
+                quantity: coinage
+                };
+
+        // history not sure if we want this in history here, probably in processMarket()....
+        // if (userData.history.length > 9)
+        //     userData.history.pop();
+        // userData.history.unshift('b' + ',' + amount.toFixed(2) + ',' + price.toFixed(2));
+
+        // statistics
+        //volume.bought += amount;
     }
     else if (command == 'sell'){
+        // check valid amount
+        if (amount <= 0.0) {
+            message.channel.send(response + ', that is an invalid amount.');
+            return;
+        }
+        // check user funds
+        if (userData.meatCoin < amount) {
+            message.channel.send(response + ', you do not have that much MeatCoin.');
+            return;
+        }
+        // check user funds
+        const value = amount;
+        if (userData.meatCoin < value) {
+            message.channel.send(response + ', you have insufficient meatCoin. ' + value + ' meatCoin is required.');
+            return;
+        }
+        //check that the user is not already buying
+        if (id in market[0]){
+            response += ', you can\'t create a sell posting, you are already buying. ya dingus!\n';
+            message.channel.send(response);
+            message.author.send('Your posting:\n' + id.padStart(18,'0') + '\tB ' + String(market[0][id].quantity).padStart(10,' ') + '\t@' + String(market[0][id].price).padStart(8,' ') + '\n');
+            return;
+        }
+        //check that the user is not also selling
+        if (id in market[1]){
+            response += ', you can\'t create a sell posting, you are already selling. Use !post adjust.\n';
+            message.channel.send(response);
+            message.author.send('Your posting:\n' + id.padStart(18,'0') + '\tS ' + String(market[1][id].quantity).padStart(10,' ') + '\t@' + String(market[1][id].price).padStart(8,' ') + '\n');
+            return;
+        }
         response += ', is looking to unload some meat, get it while it\'s hot';
+
+         // ledger
+        userData.meatCoin -= value;
+        market[1][id] = {
+                username: ledger[id].username,
+                price: price,
+                quantity: coinage
+                };
+
+        // history not sure if we want this in history here, probably in processMarket()....
+        // if (userData.history.length > 9)
+        //     userData.history.pop();
+        // userData.history.unshift('b' + ',' + amount.toFixed(2) + ',' + price.toFixed(2));
+
+        // statistics
+        //volume.bought += amount;
+    }
+    else if (command == 'adjust'){
+        //adjusting a buy
+        if (id in market[0]){
+            //remvoing post
+            if (amount <= 0.0 || floatPrice <= 0.0){
+                var postingData = market[0][id];
+                var refund = (1.0-postFee) * (postingData.price * postingData.quantity);
+                delete market[0][id];
+                response += ', your posting has been removed\n'
+                message.author.send('Your posting:\n' + id.padStart(18,'0') + '\tB ' + String(postingData.quantity).padStart(10,' ') + '\t@' + String(postingData.price).padStart(8,' ') + '\n');
+                ledger[id].gold += refund;
+                message.author.send('Has been cancelled. You have been credited ' + refund + ' gold\n');
+            }
+            else{
+                var postingData = market[0][id];
+                var xactFee = (postFee) * (postingData.price * postingData.quantity);
+                var difference = (postingData.price * postingData.quantity) - (amount * floatPrice);
+                var refund = difference - xactFee;
+                if(refund >= 0){
+                    ledger[id].gold += refund;
+                    message.author.send('Your posting:\n' + id.padStart(18,'0') + '\tB ' + String(postingData.quantity).padStart(10,' ') + '\t@' + String(postingData.price).padStart(8,' ') + '\n');
+                    postingData.price = price;
+                    postingData.quantity = coinage;
+                    response += ', your posting has been updated';
+                    message.author.send('Has been updated to:\n' + id.padStart(18,'0') + '\tB ' + String(postingData.quantity).padStart(10,' ') + '\t@' + String(postingData.price).padStart(8,' ') + '\n');
+                    message.author.send('For a refund of ' + Math.abs(refund).toFixed(2) + ' gold');
+                }
+                else{
+                    //need to pay more check if you have enough
+                    if(ledger[id].gold < Math.abs(refund)){
+                        response += ', you dont have enough money to alter your posting, you need ' + Math.abs(refund) + ' gold.';
+                        message.channel.send(response);
+                        return;
+                    }
+                    //take the extra
+                    else{
+                        ledger[id].gold += refund;
+                        message.author.send('Your posting:\n' + id.padStart(18,'0') + '\tB ' + String(postingData.quantity).padStart(10,' ') + '\t@' + String(postingData.price).padStart(8,' ') + '\n');
+                        postingData.price = price;
+                        postingData.quantity = coinage;
+                        response += ', your posting has been updated';
+                        message.author.send('Has been updated to:\n' + id.padStart(18,'0') + '\tB ' + String(postingData.quantity).padStart(10,' ') + '\t@' + String(postingData.price).padStart(8,' ') + '\n');
+                        message.author.send('For a price of ' + Math.abs(refund).toFixed(2) + ' gold');
+                    }
+                }
+            }
+        }
+        //adjusting a sell
+        else if (id in market[1]){
+            //removing post
+            if (amount <= 0.0 || floatPrice <= 0.0){
+                var postingData = market[1][id];
+                var refund = (1.0-postFee) * (postingData.quantity);
+                delete market[1][id];
+                response += ', your posting has been removed\n'
+                message.author.send('Your posting:\n' + id.padStart(18,'0') + '\tS ' + String(postingData.quantity).padStart(10,' ') + '\t@' + String(postingData.price).padStart(8,' ') + '\n');
+                ledger[id].meatCoin += refund;
+                message.author.send('Has been cancelled. You have been credited ' + refund + ' meatCoin\n');
+            }
+            else{
+                var postingData = market[1][id];
+                var xactFee = (postFee) * postingData.quantity;
+                var difference = postingData.quantity - amount;
+                var refund = difference - xactFee;
+                if(refund >= 0){
+                    ledger[id].meatCoin += refund;
+                    message.author.send('Your posting:\n' + id.padStart(18,'0') + '\tS ' + String(postingData.quantity).padStart(10,' ') + '\t@' + String(postingData.price).padStart(8,' ') + '\n');
+                    postingData.price = price;
+                    postingData.quantity = coinage;
+                    response += ', your posting has been updated';
+                    message.author.send('Has been updated to:\n' + id.padStart(18,'0') + '\tS ' + String(postingData.quantity).padStart(10,' ') + '\t@' + String(postingData.price).padStart(8,' ') + '\n');
+                    message.author.send('For a refund of ' + Math.abs(refund).toFixed(2) + ' meatCoin');
+                }
+                else{
+                    //need to pay more check if you have enough
+                    if(ledger[id].meatCoin < Math.abs(refund)){
+                        response += ', you dont have enough money to alter your posting, you need ' + Math.abs(meatCoin) + ' meatCoin.';
+                        message.channel.send(response);
+                        return;
+                    }
+                    //take the extra
+                    else{
+                        ledger[id].meatCoin += refund;
+                        message.author.send('Your posting:\n' + id.padStart(18,'0') + '\tB ' + String(postingData.quantity).padStart(10,' ') + '\t@' + String(postingData.price).padStart(8,' ') + '\n');
+                        postingData.price = price;
+                        postingData.quantity = coinage;
+                        response += ', your posting has been updated';
+                        message.author.send('Has been updated to:\n' + id.padStart(18,'0') + '\tB ' + String(postingData.quantity).padStart(10,' ') + '\t@' + String(postingData.price).padStart(8,' ') + '\n');
+                        message.author.send('For a price of ' + Math.abs(refund).toFixed(2) + ' meatCoin');
+                    }
+                }
+            }
+        }
+        else{
+            response += ', you have no postings!';
+        }
+
     }
     else{
         response += ', ' + command + ' is not a valid command. ya dingus!';
