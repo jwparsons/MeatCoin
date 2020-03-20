@@ -474,7 +474,7 @@ function help(message) {
     response += '\n\t\t!mine stop';
     response += '\n\t\t!buy <amount m¢/max>';
     response += '\n\t\t!sell <amount m¢/max>';
-    response += '\n\t\t!post <buy/sell/adjust> <price> <amount m¢>'
+    response += '\n\t\t!post <buy/sell/adjust> <amount m¢> <price>'
     response += '\n\t\t!market'
     response += '\n\t\t!market rules'
     response += '\n\n\t#gamble';
