@@ -7,6 +7,7 @@ const fee = 0.05;
 
 // user data
 var ledger = {};
+var market = [];
 var betTable = {};
 var diceTable = {};
 
@@ -21,6 +22,7 @@ var volume = {
 };
 var miners = 0;
 var registered = 0;
+var marketSize = 0;
 
 // setup
 init();
@@ -75,6 +77,8 @@ bot.on('message', (message) => {
             victory(message);
         else if (command == '!prize')
             prize(message);
+        else if (command == '!market')
+            printMarket(message);
     }
     else if (splitMessage.length == 2) {
         const command = splitMessage[0];
@@ -99,6 +103,8 @@ bot.on('message', (message) => {
 
         if (command == '!flip')
             flip(message, directive, coinage);
+        if (command == '!post') //!post buy/sell x
+            post(message, directive, coinage)
         else if (message == '!hall of fame')
             hallOfFame(message);
     }
@@ -137,6 +143,61 @@ function parseToken() {
     const path = process.cwd();
     const buffer = fs.readFileSync(path + "\\data\\token.txt").toString().split('\n');
     return buffer[0]
+}
+
+function parseSupply(message) {
+    var path = process.cwd()
+    var buffer = fs.readFileSync(path + "\\data\\meatMarket.txt");
+    var lines = buffer.toString().split("\n");
+    var buyerData = {};
+    var sellerData = {};
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].replace('\r', '');
+        
+        if (line.length > 0) {
+            var data = line.split('\t');
+            if(data[2]=='B'){
+                buyerData[data[0]]={
+                username: data[1],
+                price: parseFloat(data[3]),
+                quantity: parseFloat(data[4])
+                };
+            }
+            else if(data[2]=='S'){
+                sellerData[data[0]]={
+                username: data[1],
+                price: parseFloat(data[3]),
+                quantity: parseFloat(data[4])
+                };
+            }          
+        }
+        marketSize += 1;
+    }
+    market[0]=buyerData;
+    market[1]=sellerData;
+
+}
+
+function printMarket(message) {
+parseSupply();
+var response = '```glsl\nGET YER FLESH HERE!\n';
+// create array of unsorted users
+var buyerData = market[0];
+var sellerData = market[1];
+if (Object.keys(sellerData).length > 0) {
+    response += 'Seller\tQUANTITY\tPRICE\n'
+    Object.keys(sellerData).forEach(function(key) { 
+        response += sellerData[key].username + '\t' + sellerData[key].quantity + '\t' + sellerData[key].price + '\n';
+    });
+}
+if (Object.keys(buyerData).length > 0) {
+    response += 'BUYER\tQUANTITY\tPRICE\n'
+    Object.keys(buyerData).forEach(function(key) {
+        response += buyerData[key].username + '\t' + buyerData[key].quantity + '\t' + buyerData[key].price + '\n';
+    });
+}
+response += '```';
+message.channel.send(response);
 }
 
 function parseLedger() {
@@ -844,6 +905,35 @@ function flip(message, side, coinage) {
     response += '```';
 
     volume.gambled += amount;
+    message.channel.send(response);
+}
+
+function post(message, command, coinage){
+
+    const id = message.member.user.id;
+    var response = '<@' + id + '>';
+
+    // check user registration
+    if (!(id in ledger)) {
+        message.channel.send(response + ', you are not registered.');
+        return;
+    }
+
+    // update user channel
+    var userData = ledger[id];
+    userData.channel = message.channel;
+
+    if (command == 'buy'){
+        parseSupply();
+        response += ', is buyin\' who\'s sellin\'?';
+    }
+    else if (command == 'sell'){
+        response += ', is looking to unload some meat, get it while it\'s hot';
+    }
+    else{
+        response += ', ' + command + ' is not a valid command. ya dingus!';
+    }
+
     message.channel.send(response);
 }
 
