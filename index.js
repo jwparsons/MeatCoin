@@ -19,7 +19,8 @@ var meatTotalLast = 0;
 var volume = {
     bought: 0.0,
     sold: 0.0,
-    gambled: 0.0
+    gambled: 0.0,
+    traded: 0.0
 };
 var miners = 0;
 var registered = 0;
@@ -567,7 +568,8 @@ function printVolume(message) {
     var response = '```glsl\nTrading Session\n'
     response += '\t' + volume.bought.toFixed(2) + ' MeatCoin bought.\n';
     response += '\t' + volume.sold.toFixed(2) + ' MeatCoin sold.\n';
-    response += '\t' + volume.gambled.toFixed(2) + ' MeatCoin gambled.```';
+    response += '\t' + volume.gambled.toFixed(2) + ' MeatCoin gambled.\n';
+    response += '\t' + volume.traded.toFixed(2) + ' MeatCoin traded.```';
     message.channel.send(response);
 }
 
@@ -1015,14 +1017,6 @@ function post(message, command, price, coinage){
                 price: parseFloat(price),
                 quantity: parseFloat(coinage)
                 };
-
-        // history not sure if we want this in history here, probably in processMarket()....
-        // if (userData.history.length > 9)
-        //     userData.history.pop();
-        // userData.history.unshift('b' + ',' + amount.toFixed(2) + ',' + price.toFixed(2));
-
-        // statistics
-        //volume.bought += amount;
     }
     else if (command == 'sell'){
         // check valid amount
@@ -1064,14 +1058,6 @@ function post(message, command, price, coinage){
                 price: parseFloat(price),
                 quantity: parseFloat(coinage)
                 };
-
-        // history not sure if we want this in history here, probably in processMarket()....
-        // if (userData.history.length > 9)
-        //     userData.history.pop();
-        // userData.history.unshift('b' + ',' + amount.toFixed(2) + ',' + price.toFixed(2));
-
-        // statistics
-        //volume.bought += amount;
     }
     else if (command == 'adjust'){
         //adjusting a buy
@@ -1197,7 +1183,7 @@ function processMarket(){
                             var sellerData = ledger[Skey];
                             //credit both parties as they have already paid
                             buyerData.meatCoin += parseFloat(sellers[Skey].quantity);
-                            volume.bought += parseFloat(sellers[Skey].quantity);
+                            volume.traded += parseFloat(sellers[Skey].quantity);
                             sellerData.gold += sellers[Skey].quantity * negPrice;
                             if (buyerData.history.length > 9)
                                 buyerData.history.pop();
@@ -1215,7 +1201,7 @@ function processMarket(){
                             var sellerData = ledger[Skey];
                             //credit both parties as they have already paid
                             buyerData.meatCoin += parseFloat(buyers[Bkey].quantity);
-                            volume.bought += parseFloat(buyers[Bkey].quantity);
+                            volume.traded += parseFloat(buyers[Bkey].quantity);
                             sellerData.gold += buyers[Bkey].quantity * negPrice;
                             if (buyerData.history.length > 9)
                                 buyerData.history.pop();
@@ -1233,7 +1219,7 @@ function processMarket(){
                             var sellerData = ledger[Skey];
                             //credit both parties as they have already paid
                             buyerData.meatCoin += parseFloat(buyers[Bkey].quantity);
-                            volume.bought += parseFloat(buyers[Bkey].quantity);
+                            volume.traded += parseFloat(buyers[Bkey].quantity);
                             sellerData.gold += buyers[Bkey].quantity * negPrice;
                             if (buyerData.history.length > 9)
                                 buyerData.history.pop();
