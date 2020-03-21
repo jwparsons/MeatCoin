@@ -255,7 +255,7 @@ function fluctuate() {
     const priceAdjust = 1 + Math.random()/75.0;
     var adjuster = Math.random();
     var hyperAdjuster=" ";
-    if (adjuster < 0.501)
+    if (adjuster < 0.47)
         price /= priceAdjust;
     //Rare chance of large "hyper" fluctuation
     else if (adjuster > .997) {
@@ -276,7 +276,7 @@ function fluctuate() {
     }
     //Adjust for total market, scaled down by 5:
     if (meatTotal > 0) {
-      price = price*((8*meatTotal+meatTotal)/(8*meatTotal+meatTotalLast));
+      price = price*((6*meatTotal+meatTotal)/(6*meatTotal+meatTotalLast));
     }
     meatTotalLast = meatTotal;
     console.log('fluctuate: ' + (price - priceSave));
