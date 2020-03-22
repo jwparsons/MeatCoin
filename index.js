@@ -1,6 +1,13 @@
 const fs = require('fs');
-const Discord = require('discord.js');
-const bot = new Discord.Client();
+const path = require('path');
+const discord = require('discord.js');
+const bot = new discord.Client();
+
+// storage identifiers
+const TOKEN_FILE_NAME = 'token.txt';
+const LEDGER_FILE_NAME = 'ledger.txt';
+const PRICE_FILE_NAME = 'price.txt';
+const TIME_FILE_NAME = 'time.txt';
 
 // constants
 const fee = 0.05;
@@ -11,8 +18,8 @@ var betTable = {};
 var diceTable = {};
 
 // statistics
-var price;
-var time;
+var price = 0;
+var time = 0;
 var meatTotalLast = 0;
 var volume = {
     bought: 0.0,
@@ -119,29 +126,59 @@ bot.on('message', (message) => {
 });
 
 function init() {
-    const token = parseToken();
-    parseLedger();
-    parsePrice();
-    parseTime();
+    // Load user data and app settings
+    const token = readToken(TOKEN_FILE_NAME, parseToken);
+    ledger = readStorage(LEDGER_FILE_NAME, parseLedger);
+    price = readStorage(PRICE_FILE_NAME, parsePrice);
+    time = readStorage(TIME_FILE_NAME, parseTime);
+
+    // Initialize app data
     meatState();
     populateDiceTable();
+
+    // Schedule intervals for repetitive work
     setInterval(timeIncrement, 1000);
     setInterval(mine, 60000);
     setInterval(fluctuate, 5000);
 
-    // Meat Coin login
+    // Login
     bot.login(token);
 }
 
-function parseToken() {
-    const path = process.cwd();
-    const buffer = fs.readFileSync(path + "\\data\\token.txt").toString().split('\n');
-    return buffer[0]
+function readToken(fileName, parsingFunc) {
+    // This environment variable should be set if the app is deployed to Azure
+    var accessToken = process.env.DISCORD_ACCESS_TOKEN;
+    if (accessToken )
+        return accessToken;
+
+    // Parse token.txt if the app is running locally
+    var tokenPath = path.join('.', 'data', fileName);
+    if (fs.existsSync(tokenPath))
+        return parsingFunc(tokenPath);
 }
 
-function parseLedger() {
-    var path = process.cwd();
-    var buffer = fs.readFileSync(path + "\\data\\ledger.txt");
+function readStorage(fileName, parsingFunc) {
+    // Azure mounted storage will exist if the app is deployed to Azure
+    // path.join() ensures cross-compat. file references on Ubuntu and Windows
+    var storagePath = path.join('~', 'data', fileName);
+    if (fs.existsSync(storagePath))
+        return parsingFunc(storagePath);
+
+    // Check local storage
+    storagePath = path.join('.', 'data', fileName);
+    if (fs.existsSync(storagePath))
+        return parsingFunc(storagePath);
+}
+
+function parseToken(path) {
+    const buffer = fs.readFileSync(path).toString().split('\n');
+    return buffer[0];
+}
+
+function parseLedger(path) {
+    var localLedger = {};
+
+    var buffer = fs.readFileSync(path);
     var lines = buffer.toString().split("\n");
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i].replace('\r', '');
@@ -160,34 +197,31 @@ function parseLedger() {
                 channel: null,
                 history: userHistory
             };
-            ledger[data[0]] = userData;
+            localLedger[data[0]] = userData;
         }
         registered += 1;
     }
+
+    return localLedger;
 }
 
-function parsePrice() {
-    const path = process.cwd();
-    const buffer = fs.readFileSync(path + "\\data\\price.txt").toString().split('\n');
-
-    price = parseFloat(buffer[0].toString());
+function parsePrice(path) {
+    const buffer = fs.readFileSync(path).toString().split('\n');
+    return parseFloat(buffer[0].toString());
 }
 
-function parseTime() {
-    const path = process.cwd();
-    const buffer = fs.readFileSync(path + "\\data\\time.txt").toString().split('\n');
-
-    time = parseFloat(buffer[0].toString());
+function parseTime(path) {
+    const buffer = fs.readFileSync(path).toString().split('\n');
+    return parseFloat(buffer[0].toString());
 }
 
 function meatState() {
-  if (Object.keys(ledger).length > 0) {
-      Object.keys(ledger).forEach(function(key) {
-          userData = ledger[key];
-          meatTotalLast += parseFloat(userData.meatCoin.toFixed(2));
-        });
-  }
-  console.log('Last meat total: ' + meatTotalLast);
+    Object.keys(ledger).forEach(function(key) {
+        userData = ledger[key];
+        meatTotalLast += parseFloat(userData.meatCoin.toFixed(2));
+    });
+    
+    console.log('Last meat total: ' + meatTotalLast);
 }
 
 function populateDiceTable() {
