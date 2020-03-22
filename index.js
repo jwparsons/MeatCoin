@@ -119,24 +119,40 @@ bot.on('message', (message) => {
 });
 
 function init() {
-    const token = parseToken();
+    // Load user data and app settings
+    const token = getToken();
     parseLedger();
     parsePrice();
     parseTime();
+
+    // Initialize app data
     meatState();
     populateDiceTable();
+
+    // Schedule intervals for repetitive work
     setInterval(timeIncrement, 1000);
     setInterval(mine, 60000);
     setInterval(fluctuate, 5000);
 
-    // Meat Coin login
+    // Login
     bot.login(token);
+}
+
+function getToken() {
+    // This environment variable should be set if the app is deployed to Azure
+    var accessToken = process.env.DISCORD_ACCESS_TOKEN;
+    if (accessToken ) {
+        return accessToken;
+    }
+
+    // Parse token.txt if the app is running locally
+    return parseToken();
 }
 
 function parseToken() {
     const path = process.cwd();
     const buffer = fs.readFileSync(path + "\\data\\token.txt").toString().split('\n');
-    return buffer[0]
+    return buffer[0];
 }
 
 function parseLedger() {
