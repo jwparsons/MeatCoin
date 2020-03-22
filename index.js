@@ -121,7 +121,7 @@ bot.on('message', (message) => {
 function init() {
     // Load user data and app settings
     const token = getToken();
-    parseLedger();
+    ledger = getLedger();
     parsePrice();
     parseTime();
 
@@ -153,6 +153,10 @@ function parseToken() {
     const path = process.cwd();
     const buffer = fs.readFileSync(path + "\\data\\token.txt").toString().split('\n');
     return buffer[0];
+}
+
+function getLedger() {
+    
 }
 
 function parseLedger() {

@@ -10,6 +10,7 @@
   "license": "ISC",
   "repository": "https://github.com/jwparsons/MeatCoin",
   "dependencies": {
+    "@azure/storage-blob": "^12.1.1",
     "discord.js": "^11.3.0"
   }
 }
