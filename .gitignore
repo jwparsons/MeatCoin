@@ -57,3 +57,7 @@ typings/
 # dotenv environment variables file
 .env
 
+#keep tokens private
+data/token.txt
+#keep price local
+data/price.txt
