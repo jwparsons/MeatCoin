@@ -119,7 +119,7 @@ bot.on('message', (message) => {
 });
 
 function init() {
-    const token = parseToken();
+    const token = getToken();
     parseLedger();
     parsePrice();
     parseTime();
@@ -133,10 +133,8 @@ function init() {
     bot.login(token);
 }
 
-function parseToken() {
-    const path = process.cwd();
-    const buffer = fs.readFileSync(path + "\\data\\token.txt").toString().split('\n');
-    return buffer[0]
+function getToken() {
+    return process.env.MEAT_TOKEN; 
 }
 
 function parseLedger() {
