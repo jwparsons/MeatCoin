@@ -515,6 +515,7 @@ function advice(message) {
         response += 'SELL SELL SELL AHHHHHHHHHHHH!';
     else
         response += 'CALL ME CRAZY BUT IT AINT NO LIE BABY BUY BUY BUY!'
+    response += '```';
 
     message.channel.send(response, {
         tts: true
