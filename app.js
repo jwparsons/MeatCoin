@@ -1,6 +1,7 @@
 const fs = require('fs');
-const Discord = require('discord.js');
-const bot = new Discord.Client();
+const discord = require('discord.js');
+const bot = new discord.Client();
+const render = require('./charts/render-chart.js');
 
 // constants
 const fee = 0.05;
@@ -12,6 +13,7 @@ var diceTable = {};
 
 // statistics
 var price;
+var priceHistory = [];
 var time;
 var meatTotalLast = 0;
 var volume = {
@@ -91,6 +93,8 @@ bot.on('message', (message) => {
             diceRules(message);
         else if (command == '!flip' && directive == 'rules')
             flipRules(message);
+        else if (command == '!price' && directive == 'chart')
+            renderPriceChart(message);
     }
     else if (splitMessage.length == 3) {
         const command = splitMessage[0];
@@ -277,6 +281,7 @@ function fluctuate() {
       price = price*((6*meatTotal+meatTotal)/(6*meatTotal+meatTotalLast));
     }
     meatTotalLast = meatTotal;
+    priceHistory.push({"x": time, "y": price, "c": 0});
     console.log('fluctuate: ' + (price - priceSave));
     console.log('Gold in Market: ' + goldTotal);
     console.log('Meat in Market: ' + meatTotal);
@@ -354,11 +359,12 @@ process.on('uncaughtException', function(err) {
 function help(message) {
     var response = '';
     response += '```css\n';
-    response += '[MeatCoin v2.4]';
+    response += '[MeatCoin v2.4.2]';
     response += '\n\t#info';
     response += '\n\t\t!balance';
     response += '\n\t\t!history';
     response += '\n\t\t!price';
+    response += '\n\t\t!price chart';
     response += '\n\t\t!fee';
     response += '\n\t\t!volume';
     response += '\n\t\t!leaderboard';
@@ -785,6 +791,10 @@ function diceRules(message) {
 function flipRules(message) {
     var response = '```Call ribs/loins. Flip the MeatCoin. Meat your maker!```';
     message.channel.send(response);
+}
+
+function renderPriceChart(message) {
+    render.line_chart(message, priceHistory);
 }
 
 function flip(message, side, coinage) {
