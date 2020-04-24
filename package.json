@@ -1,6 +1,6 @@
 {
   "name": "app",
-  "version": "2.4.0",
+  "version": "2.4.2",
   "description": "Discord Cryptocurrency Simulator",
   "main": "app.js",
   "scripts": {
@@ -10,6 +10,8 @@
   "license": "ISC",
   "repository": "https://github.com/jwparsons/MeatCoin",
   "dependencies": {
-    "discord.js": "^11.6.4"
+    "canvas": "^2.6.1",
+    "discord.js": "^11.6.4",
+    "vega": "^5.10.1"
   }
 }
