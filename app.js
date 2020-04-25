@@ -3,9 +3,15 @@ const fs = require('fs');
 const path = require('path');
 const render = require('./charts/render-chart.js');
 
-// constants
+// bot
 const bot = new discord.Client();
+
+// properties
 const fee = 0.05;
+
+// time
+const serverStartTime = new Date();
+var serverElapsedTime = 0;
 
 // user data
 var ledger = {};
@@ -15,8 +21,6 @@ var diceTable = {};
 // statistics
 var price;
 var priceHistory = [];
-var time;
-var meatTotalLast = 0;
 var volume = {
     bought: 0.0,
     sold: 0.0,
@@ -130,18 +134,15 @@ bot.on('message', (message) => {
 
 function init() {
     const token = getToken();
+
     setFilePaths();
+    populateDiceTable();
 
     parseLedger();
     parsePrice();
-    parseTime();
 
-    meatState();
-    populateDiceTable();
-
-    setInterval(timeIncrement, 1000);
     setInterval(mine, 60000);
-    setInterval(fluctuate, 5000);
+    setInterval(fluctuate, 1000);
 
     bot.login(token);
 }
@@ -184,27 +185,9 @@ function parseLedger() {
 }
 
 function parsePrice() {
-    const path = process.cwd();
     const buffer = fs.readFileSync(priceFilePath).toString().split('\n');
 
     price = parseFloat(buffer[0].toString());
-}
-
-function parseTime() {
-    const path = process.cwd();
-    const buffer = fs.readFileSync(timeFilePath).toString().split('\n');
-
-    time = parseFloat(buffer[0].toString());
-}
-
-function meatState() {
-  if (Object.keys(ledger).length > 0) {
-      Object.keys(ledger).forEach(function(key) {
-          userData = ledger[key];
-          meatTotalLast += parseFloat(userData.meatCoin.toFixed(2));
-        });
-  }
-  console.log('Last meat total: ' + meatTotalLast);
 }
 
 function populateDiceTable() {
@@ -259,55 +242,36 @@ function mine() {
 
 function fluctuate() {
     const priceSave = price;
-    var goldTotal = 0;
-    var meatTotal = 0;
-    var userData;
-    if (Object.keys(ledger).length > 0)
-        Object.keys(ledger).forEach(function(key) {
-            userData = ledger[key];
-            goldTotal += parseFloat(userData.gold.toFixed(2));
-            meatTotal += parseFloat(userData.meatCoin.toFixed(2));
-          });
-    //Adjust by random fluctuations, trending down for deflation:
-    const priceAdjust = 1 + Math.random()/75.0;
+    serverElapsedTime += 1;
+
+    // big ups and downs
+    const volatility = 1.01;
+
+    // adds up to ~500 over 10 hours
+    const inflation = 0.0139;
+
+    // 33% chance to go up
+    // 33% chance to do down
+    // 34% chance to stay the same
     var adjuster = Math.random();
-    var hyperAdjuster=" ";
-    if (adjuster < 0.47)
-        price /= priceAdjust;
-    //Rare chance of large "hyper" fluctuation
-    else if (adjuster > .997) {
-        hyperAdjuster = 1 + Math.random()/2;
-        console.log("HYPER! " + hyperAdjuster);
-        var adjustPrint = 0;
-        if (Math.random() > 0.5) {
-            price /= hyperAdjuster;
-            adjustPrint= (1/hyperAdjuster)*100 + "%";
-        } else {
-            price *= hyperAdjuster;
-            adjustPrint= (hyperAdjuster)*100 + "%";
-        }
-//        const response = '```glsl\nHYPER Adjustment: ```'+ adjustPrint;
-//        message.channel.send(response);
+    if (adjuster <= 0.32) {
+        price *= volatility;
+    } else if (adjuster <= 0.65) {
+        price /= volatility;
     } else {
-        price *= priceAdjust;
+        price *= 1;
     }
-    //Adjust for total market, scaled down by 5:
-    if (meatTotal > 0) {
-      price = price*((6*meatTotal+meatTotal)/(6*meatTotal+meatTotalLast));
-    }
-    meatTotalLast = meatTotal;
-    priceHistory.push({"x": time, "y": price, "c": 0});
-    console.log('fluctuate: ' + (price - priceSave));
-    console.log('Gold in Market: ' + goldTotal);
-    console.log('Meat in Market: ' + meatTotal);
-    console.log('Total Time Market Open: ' + time);
+    price += inflation;
+
+    priceHistory.push({'x': serverElapsedTime, 'y': price, 'c': 0});
+
+    console.log('Price: ' + price);
+    console.log('Fluctuate: ' + (price - priceSave));
+    console.log('Total Time Market Open: ' + serverElapsedTime);
+    console.log('');
 }
 
-function timeIncrement(){
-    time += 1;
-}
-
-function saveUserData(path) {
+function saveUserData() {
     var userDataBuffer = '';
     var userData;
     if (Object.keys(ledger).length > 0) {
@@ -337,37 +301,28 @@ function saveUserData(path) {
 
         userDataBuffer = userDataBuffer.substring(0, userDataBuffer.length - 1);
         fs.writeFileSync(ledgerFilePath, userDataBuffer, function(err) {
+            console.log(err);
         });
     }
 }
 
-function savePriceData(path) {
-    var priceDataBuffer = '';
-    priceDataBuffer = price + '\n';
+function savePriceData() {
+    const priceDataBuffer = price + '\n';
     fs.writeFileSync(priceFilePath, priceDataBuffer, function(err) {
-    });
-}
-
-function saveTimeData(path) {
-    var timeDataBuffer = '';
-    timeDataBuffer = time + '\n';
-    fs.writeFileSync(timeFilePath, timeDataBuffer, function(err) {
+        console.log(err);
     });
 }
 
 process.on('SIGINT', function() {
-    var path = process.cwd();
-    saveUserData(path);
-    savePriceData(path);
-    saveTimeData(path);
+    saveUserData();
+    savePriceData();
     process.exit();
 });
 
 process.on('uncaughtException', function(err) {
     console.log(err);
-    var path = process.cwd();
-    saveUserData(path);
-    savePriceData(path);
+    saveUserData();
+    savePriceData();
     process.exit();
 });
 
@@ -810,7 +765,7 @@ function flipRules(message) {
 }
 
 function renderPriceChart(message) {
-    render.line_chart(message, priceHistory);
+    render.line_chart(message, priceHistory, serverStartTime);
 }
 
 function flip(message, side, coinage) {
