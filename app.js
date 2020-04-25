@@ -1,9 +1,10 @@
-const fs = require('fs');
 const discord = require('discord.js');
-const bot = new discord.Client();
+const fs = require('fs');
+const path = require('path');
 const render = require('./charts/render-chart.js');
 
 // constants
+const bot = new discord.Client();
 const fee = 0.05;
 
 // user data
@@ -23,6 +24,11 @@ var volume = {
 };
 var miners = 0;
 var registered = 0;
+
+// files
+var ledgerFilePath;
+var priceFilePath;
+var timeFilePath;
 
 // setup
 init();
@@ -124,16 +130,19 @@ bot.on('message', (message) => {
 
 function init() {
     const token = getToken();
+    setFilePaths();
+
     parseLedger();
     parsePrice();
     parseTime();
+
     meatState();
     populateDiceTable();
+
     setInterval(timeIncrement, 1000);
     setInterval(mine, 60000);
     setInterval(fluctuate, 5000);
 
-    // Meat Coin login
     bot.login(token);
 }
 
@@ -141,10 +150,16 @@ function getToken() {
     return process.env.MEAT_TOKEN; 
 }
 
+function setFilePaths() {
+    const rootPath = process.cwd();
+    ledgerFilePath = path.join(rootPath, 'data', 'ledger.txt');
+    priceFilePath = path.join(rootPath, 'data', 'price.txt');
+    timeFilePath = path.join(rootPath, 'data', 'time.txt');
+}
+
 function parseLedger() {
-    var path = process.cwd();
-    var buffer = fs.readFileSync(path + "\\data\\ledger.txt");
-    var lines = buffer.toString().split("\n");
+    var buffer = fs.readFileSync(ledgerFilePath);
+    var lines = buffer.toString().split('\n');
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i].replace('\r', '');
         if (line.length > 0) {
@@ -170,14 +185,14 @@ function parseLedger() {
 
 function parsePrice() {
     const path = process.cwd();
-    const buffer = fs.readFileSync(path + "\\data\\price.txt").toString().split('\n');
+    const buffer = fs.readFileSync(priceFilePath).toString().split('\n');
 
     price = parseFloat(buffer[0].toString());
 }
 
 function parseTime() {
     const path = process.cwd();
-    const buffer = fs.readFileSync(path + "\\data\\time.txt").toString().split('\n');
+    const buffer = fs.readFileSync(timeFilePath).toString().split('\n');
 
     time = parseFloat(buffer[0].toString());
 }
@@ -321,7 +336,7 @@ function saveUserData(path) {
         });
 
         userDataBuffer = userDataBuffer.substring(0, userDataBuffer.length - 1);
-        fs.writeFileSync(path + "\\data\\ledger.txt", userDataBuffer, function(err) {
+        fs.writeFileSync(ledgerFilePath, userDataBuffer, function(err) {
         });
     }
 }
@@ -329,14 +344,14 @@ function saveUserData(path) {
 function savePriceData(path) {
     var priceDataBuffer = '';
     priceDataBuffer = price + '\n';
-    fs.writeFileSync(path + "\\data\\price.txt", priceDataBuffer, function(err) {
+    fs.writeFileSync(priceFilePath, priceDataBuffer, function(err) {
     });
 }
 
 function saveTimeData(path) {
     var timeDataBuffer = '';
     timeDataBuffer = time + '\n';
-    fs.writeFileSync(path + "\\data\\originTime.txt", timeDataBuffer, function(err) {
+    fs.writeFileSync(timeFilePath, timeDataBuffer, function(err) {
     });
 }
 

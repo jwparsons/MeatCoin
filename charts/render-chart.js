@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 const vega = require('vega');
 
 const lineChartSpecFileName = 'line-chart.spec.json'
@@ -6,8 +7,9 @@ const renderedLineChartFileName = 'price-chart.png';
 
 module.exports = {
     line_chart: function (message, priceHistory) {
-        const lineChartSpecPath = process.cwd() + '\\charts\\' + lineChartSpecFileName;
-        const renderedLineChartFilePath = process.cwd() + '\\charts\\' + renderedLineChartFileName;
+        const rootPath = process.cwd();
+        const lineChartSpecPath = path.join(rootPath, 'charts', lineChartSpecFileName);
+        const renderedLineChartFilePath = path.join(rootPath, 'charts', renderedLineChartFileName);
 
         console.log('Parsing line chart spec...');
         fs.readFile(lineChartSpecPath, function(err, data) {
