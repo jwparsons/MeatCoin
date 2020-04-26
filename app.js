@@ -1,38 +1,22 @@
-const discord = require('discord.js');
-const fs = require('fs');
-const path = require('path');
-const render = require('./charts/render-chart.js');
+const pjson = require('./package.json');
+require('dotenv').config();
 
-// bot
-const bot = new discord.Client();
+// lib
+const render = require('./lib/charts/render-chart.js');
+const response = require('./lib/service/response.js');
+const client = require('./lib/service/client.js');
+const server = require('./lib/service/server.js');
+const validation = require('./lib/service/validation.js');
+const quick = require('./lib/algorithms/quick-select.js');
+const insertion = require('./lib/algorithms/insertion-sort.js');
+const gaussian = require('./lib/algorithms/gaussian-dist.js');
 
-// properties
-const fee = 0.05;
+// remove later?
+const bot = client.bot();
 
-// time
-const serverStartTime = new Date();
-var serverElapsedTime = 0;
-
-// user data
-var ledger = {};
+// games
 var betTable = {};
 var diceTable = {};
-
-// statistics
-var price;
-var priceHistory = [];
-var volume = {
-    bought: 0.0,
-    sold: 0.0,
-    gambled: 0.0
-};
-var miners = 0;
-var registered = 0;
-
-// files
-var ledgerFilePath;
-var priceFilePath;
-var timeFilePath;
 
 // setup
 init();
@@ -45,7 +29,7 @@ bot.on('message', (message) => {
         return;
 
     // ignore messages from Meat Coin
-    if (message.member.user.username == "Meat Coin")
+    if (message.member.user.username == 'Meat Coin')
         return;
 
     // check if server is busy
@@ -72,11 +56,9 @@ bot.on('message', (message) => {
         else if (command == '!history')
             history(message);
         else if (command == '!price')
-            printPrice(message);
-        else if (command == '!fee')
-            printFee(message);
+            price(message);
         else if (command == '!volume')
-            printVolume(message);
+            volume(message);
         else if (command == '!leaderboard')
             leaderboard(message);
         else if (command == '!advice')
@@ -91,11 +73,8 @@ bot.on('message', (message) => {
     else if (splitMessage.length == 2) {
         const command = splitMessage[0];
         const directive = splitMessage[1];
-        if (command == '!mine' && directive == 'start')
-            mineStart(message);
-        else if (command == '!mine' && directive == 'stop')
-            mineStop(message);
-        else if (command == '!buy')
+
+        if (command == '!buy')
             buy(message, directive);
         else if (command == '!sell')
             sell(message, directive);
@@ -104,7 +83,7 @@ bot.on('message', (message) => {
         else if (command == '!flip' && directive == 'rules')
             flipRules(message);
         else if (command == '!price' && directive == 'chart')
-            renderPriceChart(message);
+            priceChart(message);
     }
     else if (splitMessage.length == 3) {
         const command = splitMessage[0];
@@ -115,6 +94,8 @@ bot.on('message', (message) => {
             flip(message, directive, coinage);
         else if (message == '!hall of fame')
             hallOfFame(message);
+        else if (command == '!send')
+            sendUser(message, directive, coinage);
     }
     else if (splitMessage.length > 3) {
         const command = splitMessage[0];
@@ -126,68 +107,26 @@ bot.on('message', (message) => {
             diceChallenge(message, username, coinage);
         else if (command == '!dice' && directive == 'accept')
             diceAccept(message, username, coinage);
-        else if (command == '!send' && directive == 'user')
-            sendUser(message, username, coinage);
     }
     isReady = true;
 });
 
 function init() {
-    const token = getToken();
+    console.log('MeatCoin v' + pjson.version);
 
-    setFilePaths();
+    server.Data.loadSync();
+    console.log('Price: ' + server.Data.price);
+    console.log('Ledger: ' + JSON.stringify(server.Data.ledger, null, 2));
+    console.log('');
+
     populateDiceTable();
-
-    parseLedger();
-    parsePrice();
 
     setInterval(mine, 60000);
     setInterval(fluctuate, 1000);
+    setInterval(backup, 60000);
 
+    const token = process.env.MEAT_TOKEN;
     bot.login(token);
-}
-
-function getToken() {
-    return process.env.MEAT_TOKEN; 
-}
-
-function setFilePaths() {
-    const rootPath = process.cwd();
-    ledgerFilePath = path.join(rootPath, 'data', 'ledger.txt');
-    priceFilePath = path.join(rootPath, 'data', 'price.txt');
-    timeFilePath = path.join(rootPath, 'data', 'time.txt');
-}
-
-function parseLedger() {
-    var buffer = fs.readFileSync(ledgerFilePath);
-    var lines = buffer.toString().split('\n');
-    for (var i = 0; i < lines.length; i++) {
-        var line = lines[i].replace('\r', '');
-        if (line.length > 0) {
-            var data = line.split('\t');
-
-            var userHistory = [];
-            if (data.length == 5)
-                userHistory = data[4].split(':');
-
-            var userData = {
-                username: data[1],
-                gold: parseFloat(data[2]),
-                meatCoin: parseFloat(data[3]),
-                isMining: false,
-                channel: null,
-                history: userHistory
-            };
-            ledger[data[0]] = userData;
-        }
-        registered += 1;
-    }
-}
-
-function parsePrice() {
-    const buffer = fs.readFileSync(priceFilePath).toString().split('\n');
-
-    price = parseFloat(buffer[0].toString());
 }
 
 function populateDiceTable() {
@@ -219,957 +158,388 @@ function mine() {
         return
 
     isReady = false;
-    const magicNumber = Math.floor((Math.random() * Math.max(miners, 10)) + 1);
-    var userData;
-    var userGuess;
-    Object.keys(ledger).forEach(function(key) {
-        userData = ledger[key];
-        if (userData.isMining == true) {
-            userGuess = Math.floor((Math.random() * Math.max(miners, 10)) + 1);
-            if (userGuess == magicNumber) {
-                // make a standard gaussian variable.
-                var standard = gaussian(price/2, price/2);
-                const reward = Math.ceil(standard());
 
-                var response = '<@' + key + '>' + ', you have mined ' + reward + ' gold!!!';
-                userData.gold += reward;
-                userData.channel.send(response);
+    console.log('Mining event');
+    const magicNumber = Math.floor((Math.random() * Math.max(server.Stats.numMiners, 15)) + 1);
+    Object.values(server.Data.ledger).forEach(trader => {
+        const traderGuess = Math.floor((Math.random() * Math.max(server.Stats.numMiners, 15)) + 1);
+            if (traderGuess == magicNumber) {
+                const standard = gaussian.standard(server.Data.price/2, server.Data.price/2);
+
+                const amount = Math.ceil(standard());
+                trader.gold += amount;
+
+                console.log(trader.tag + ' mined ' + amount + ' gold.');
+                response.Notification.minedGold(getChannel(trader.channelId), trader.tag, amount);
             }
-        }
     });
+    console.log('');
+
     isReady = true;
 }
 
 function fluctuate() {
-    const priceSave = price;
-    serverElapsedTime += 1;
-
-    // big ups and downs
-    const volatility = 1.01;
-
-    // adds up to ~500 over 10 hours
-    const inflation = 0.0139;
+    const oldPrice = server.Data.price;
+    var newPrice = oldPrice;
+    server.elapsedTime += 1;
 
     // 33% chance to go up
     // 33% chance to do down
     // 34% chance to stay the same
-    var adjuster = Math.random();
+    const adjuster = Math.random();
     if (adjuster <= 0.32) {
-        price *= volatility;
+        newPrice *= server.Config.volatility;
     } else if (adjuster <= 0.65) {
-        price /= volatility;
+        newPrice /= server.Config.volatility;
     } else {
-        price *= 1;
+        newPrice *= 1;
     }
-    price += inflation;
+    newPrice += server.Config.inflation;
 
-    priceHistory.push({'x': serverElapsedTime, 'y': price, 'c': 0});
+    server.Data.price = newPrice;
+    server.Stats.priceHistory.push({'x': server.elapsedTime, 'y': newPrice, 'c': 0});
 
-    console.log('Price: ' + price);
-    console.log('Fluctuate: ' + (price - priceSave));
-    console.log('Total Time Market Open: ' + serverElapsedTime);
+    console.log('Price: ' + newPrice);
+    console.log('Fluctuate: ' + (newPrice - oldPrice));
+    console.log('Total Time Market Open: ' + server.elapsedTime);
     console.log('');
 }
 
-function saveUserData() {
-    var userDataBuffer = '';
-    var userData;
-    if (Object.keys(ledger).length > 0) {
-        Object.keys(ledger).forEach(function(key) {
-            userData = ledger[key];
-            userDataBuffer += key;
-            userDataBuffer += '\t';
-            userDataBuffer += userData.username;
-            userDataBuffer += '\t';
-            userDataBuffer += userData.gold.toFixed(2);
-            userDataBuffer += '\t';
-            userDataBuffer += userData.meatCoin.toFixed(2);
-
-            if (userData.history.length > 0) {
-                userDataBuffer += '\t';
-                for (var i = 0; i < userData.history.length; i++) {
-                    userDataBuffer += userData.history[i];
-                    if (i == userData.history.length - 1)
-                        userDataBuffer += '\n';
-                    else
-                        userDataBuffer += ':';
-                }
-            }
-            else
-                userDataBuffer += '\n';
-        });
-
-        userDataBuffer = userDataBuffer.substring(0, userDataBuffer.length - 1);
-        fs.writeFileSync(ledgerFilePath, userDataBuffer, function(err) {
-            console.log(err);
-        });
-    }
+function backup() {
+    console.log('Backup begin.');
+    server.Data.saveAsync();
+    console.log('Backup end.\n');
 }
 
-function savePriceData() {
-    const priceDataBuffer = price + '\n';
-    fs.writeFileSync(priceFilePath, priceDataBuffer, function(err) {
-        console.log(err);
-    });
-}
-
-process.on('SIGINT', function() {
-    saveUserData();
-    savePriceData();
+function shutdown() {
+    server.Data.saveSync();
     process.exit();
+}
+
+process.on('SIGINT', () => {
+    console.log('SIGINT');
+    shutdown();
+});
+
+process.on('SIGTERM', () => {
+    console.log('SIGTERM');
+    shutdown();
 });
 
 process.on('uncaughtException', function(err) {
-    console.log(err);
-    saveUserData();
-    savePriceData();
-    process.exit();
+    console.log(err.stack);
+    shutdown();
+});
+
+process.on('exit', () => {
+    console.log('exit');
 });
 
 function help(message) {
-    var response = '';
-    response += '```css\n';
-    response += '[MeatCoin v2.4.2]';
-    response += '\n\t#info';
-    response += '\n\t\t!balance';
-    response += '\n\t\t!history';
-    response += '\n\t\t!price';
-    response += '\n\t\t!price chart';
-    response += '\n\t\t!fee';
-    response += '\n\t\t!volume';
-    response += '\n\t\t!leaderboard';
-    response += '\n\t\t!advice';
-    response += '\n\n\t#weigners';
-    response += '\n\t\t!prize';
-    response += '\n\t\t!victory';
-    response += '\n\n\t#brokerage';
-    response += '\n\t\t!register';
-    response += '\n\t\t!mine start';
-    response += '\n\t\t!mine stop';
-    response += '\n\t\t!buy <amount m¢/max>';
-    response += '\n\t\t!sell <amount m¢/max>';
-    response += '\n\n\t#gamble';
-    response += '\n\t\t!flip rules';
-    response += '\n\t\t!flip <ribs/loins> <amount m¢>';
-    response += '\n\t\t!dice rules';
-    response += '\n\t\t!dice challenge <username> <amount m¢>';
-    response += '\n\t\t!dice accept <username> <amount m¢>';
-    response += '\n\n\t#coerce';
-    response += '\n\t\t!send user <username> <amount m¢>';
-    response += '\n\n\t#legends';
-    response += '\n\t\t!hall of fame';
-    response += '```';
-    message.channel.send(response);
+    response.Broadcast.help(message.channel);
 }
 
 function balance(message) {
-    const id = message.member.user.id;
-    var response = '<@' + id + '>';
+    const trader = validation.checkRegistered(message.channel, message.member.user.tag);
+    if (!trader) return;
 
-    // check user registration
-    if (!(id in ledger)) {
-        message.channel.send(response + ', you are not registered.');
-        return;
-    }
-
-    response = '```glsl\n';
-    var userData = ledger[id];
-    userData.channel = message.channel;
-    const userGold = userData.gold;
-    const userMeatCoin = userData.meatCoin;
-    const userValue = userGold + userMeatCoin * price;
-    response += userData.username + '\n';
-    response += '\t' + userGold.toFixed(2) + ' gold\n';
-    response += '\t' + userMeatCoin.toFixed(2) + ' MeatCoin\n';
-    response += '\t' + userValue.toFixed(2) + ' unrealized';
-    response += '```';
-
-    message.channel.send(response);
+    response.Broadcast.balance(message.channel, trader);
 }
 
 function history(message) {
-    const id = message.member.user.id;
-    var response = '<@' + id + '>';
+    const trader = validation.checkRegistered(message.channel, message.member.user.tag);
+    if (!trader) return;
 
-    // check user registration
-    if (!(id in ledger)) {
-        message.channel.send(response + ', you are not registered.');
-        return;
-    }
-
-    // update user channel
-    var userData = ledger[id];
-    userData.channel = message.channel;
-
-    // check if history available
-    if (userData.history.length == 0) {
-        message.channel.send(response + ', no history available.');
-        return;
-    }
-
-    response = '```glsl\n';
-    response += userData.username;
-    var entry;
-    for (var i = 0; i < userData.history.length; i++) {
-        response += '\n';
-        entry = userData.history[i].split(',');
-        if (entry[0] == 'b')
-            response += '\tBought ';
-        else
-            response += '\tSold ';
-        response += entry[1] + ' MeatCoin @ ' + entry[2] + ' gold.';
-    }
-    response += '```';
-
-    message.channel.send(response);
+    response.Broadcast.history(message.channel, trader);
 }
 
-function printPrice(message) {
-    const response = '```glsl\nThe price of MeatCoin is ' + price + ' gold.```';
-    message.channel.send(response);
+function price(message) {
+    const trader = validation.checkRegistered(message.channel, message.member.user.tag);
+    if (!trader) return;
+
+    response.Broadcast.price(message.channel);
 }
 
-function printFee(message) {
-    const response = '```glsl\nThe fee to buy/sell MeatCoin is 5 %.```';
-    message.channel.send(response);
+function priceChart(message) {
+    const trader = validation.checkRegistered(message.channel, message.member.user.tag);
+    if (!trader) return;
+
+    render.line_chart(server.Stats.priceHistory, function(priceChartFilePath) {
+        response.Broadcast.priceChart(message.channel, priceChartFilePath, server.startTime);
+    });
 }
 
-function printVolume(message) {
-    var response = '```glsl\nTrading Session\n'
-    response += '\t' + volume.bought.toFixed(2) + ' MeatCoin bought.\n';
-    response += '\t' + volume.sold.toFixed(2) + ' MeatCoin sold.\n';
-    response += '\t' + volume.gambled.toFixed(2) + ' MeatCoin gambled.```';
-    message.channel.send(response);
+function volume(message) {
+    const trader = validation.checkRegistered(message.channel, message.member.user.tag);
+    if (!trader) return;
+
+    response.Broadcast.volume(message.channel);
 }
 
 function leaderboard(message) {
-    var response = '```glsl\n';
+    const trader = validation.checkRegistered(message.channel, message.member.user.tag);
+    if (!trader) return;
 
-    // create array of unsorted users
-    var sortedLedger = [];
-    if (Object.keys(ledger).length > 0) {
-        Object.keys(ledger).forEach(function(key) {
-            sortedLedger.push({
-                user: ledger[key].username,
-                gold: ledger[key].gold,
-                meatCoin: ledger[key].meatCoin
-            });
-        });
-    }
+    const traders = Object.values(server.Data.ledger);
+    if (traders.length > 10)
+        quick.select(traders, 10, server.Trader.hasMoreMoney);
 
-    // sort the users by realied gold total
-    sortedLedger.sort(function (a, b) {
-        aScore = a.gold + a.meatCoin * price;
-        bScore = b.gold + b.meatCoin * price;
-        if (aScore > bScore)
-          return -1;
-        if (aScore < bScore)
-          return 1;
-        return 0;
-    });
+    const leadingTraders = traders.slice(0, 10);
+    insertion.sort(leadingTraders, server.Trader.hasMoreMoney, false);
+    leadingTraders.reverse();
 
-    // return info of all users
-    var userGold;
-    var userMeatCoin;
-    for (var i = 0; i < sortedLedger.length; i++) {
-        userGold = sortedLedger[i].gold.toFixed(2);
-        userMeatCoin = sortedLedger[i].meatCoin.toFixed(2);
-        response += (i + 1) + '. ' + sortedLedger[i].user + ' - ' + userGold + ' gold + ' + userMeatCoin + ' $mc';
-        if (i + 1 == sortedLedger.length)
-            response += '```';
-        else
-            response += '\n';
-    }
-
-    message.channel.send(response);
+    response.Broadcast.leaderboard(message.channel, leadingTraders);
 }
 
 function advice(message) {
-    var response = '```';
-    const value = price;
-    if (Math.random() > 0.5)
-        response += 'SELL SELL SELL AHHHHHHHHHHHH!';
-    else
-        response += 'CALL ME CRAZY BUT IT AINT NO LIE BABY BUY BUY BUY!'
-    response += '```';
+    const trader = validation.checkRegistered(message.channel, message.member.user.tag);
+    if (!trader) return;
 
-    message.channel.send(response, {
-        tts: true
-    });
+    response.Broadcast.advice(message.channel);
 }
 
 function register(message) {
-    const id = message.member.user.id;
-    var response = '<@' + id + '>';
+    const traderNotRegistered = validation.checkNotRegistered(message.channel, message.member.user.tag);
+    if (!traderNotRegistered) return;
 
-    // check if user already registered
-    const username = message.member.user.username;
-    if (id in ledger) {
-        var userData = ledger[id];
-        userData.channel = message.channel;
-        response += ', you are already registered.';
-    }
-    else {
-        // register
-        var userData = {
-            username: username,
-            gold: 1.0,
-            meatCoin: 0.0,
-            isMining: false,
-            channel: message.channel,
-            history: []
-        };
-        ledger[id] = userData;
-        response = '```glsl\n' + username;
-        response += ' has succesfully registered.```';
-        registered += 1;
-    }
+    const newTrader = new server.Trader(message.member.user.id, message.member.user.tag, message.member.user.username, message.channel.id, 1.0, 0, []);
+    server.Data.addTrader(newTrader);
 
-    message.channel.send(response);
+    response.Broadcast.registration(message.channel, newTrader.tag);
 }
 
 function victory(message) {
-    const id = message.member.user.id;
-    var response = '<@' + id + '>';
+    const trader = validation.checkRegistered(message.channel, message.member.user.tag);
+    if (!trader) return;
 
-    // check user registration
-    if (!(id in ledger)) {
-        message.channel.send(response + ', you are not registered.');
-        return;
-    }
+    const victory = validation.checkVictory(message.channel, trader);
+    if (!victory) return;
 
-    // update user channel
-    var userData = ledger[id];
-    userData.channel = message.channel;
-
-    const username = message.member.user.username;
-    if (userData.gold > 1000000000) {
-        console.log("victory: " + username);
-        response = '```glsl\n' + username;
-        response += ' has won MeatCoin. Contact @jamespar for your prize you meaty bitch!```';
-        message.channel.send(response);
-        var path = process.cwd();
-        saveUserData(path);
-        savePriceData(path);
-        process.exit();
-    }
-    else {
-        response = '```glsl\n';
-        response += 'Victory requires 1,000,000 gold. Keep beating that meat!```';
-    }
-
-    message.channel.send(response);
+    console.log('victory: ' + trader.tag);
+    response.Broadcast.victory(message.channel, trader.tag);
+    shutdown();
 }
 
 function prize(message) {
-    const id = message.member.user.id;
+    const trader = validation.checkRegistered(message.channel, message.member.user.tag);
+    if (!trader) return;
 
-    // update user channel
-    if (id in ledger) {
-        var userData = ledger[id];
-        userData.channel = message.channel;
-    }
-
-    response = '```glsl\n';
-    //response += 'The prize for winning MeatCoin is a Steam game of your choice (up to $10 value).```';
-    response += 'No prize at this time lol```';
-
-    message.channel.send(response);
+    response.Broadcast.prize(message.channel);
 }
 
-function mineStart(message) {
-    const id = message.member.user.id;
-    var response = '<@' + id + '>';
+function buy(message, rawMeatCoinAmount) {
+    const trader = validation.checkRegistered(message.channel, message.member.user.tag);
+    if (!trader) return;
 
-    // check user registration
-    if (!(id in ledger)) {
-        message.channel.send(response + ', you are not registered.');
-        return;
-    }
+    const meatCoinAmount = validation.checkMeatCoinAmount(message.channel, trader, rawMeatCoinAmount);
+    if (!meatCoinAmount) return;
 
-    // update user channel
-    var userData = ledger[id];
-    userData.channel = message.channel;
+    const traderHasFunds = validation.checkGoldBalance(message.channel, trader, meatCoinAmount);
+    if (!traderHasFunds) return;
 
-    // start mining
-    if (userData.isMining)
-        response += ', you are already mining.';
-    else {
-        userData.isMining = true;
-        response = '```glsl\n' + userData.username;
-        response += ' has started mining.';
-        response += '```';
-        miners += 1;
-    }
+    const meatCoinGoldValue = meatCoinAmount * server.Data.price;
+    trader.gold -= meatCoinGoldValue;
+    trader.meat += meatCoinAmount;
 
-    message.channel.send(response);
+    if (trader.history.length > 9)
+        trader.history.pop();
+    trader.history.unshift('b' + ',' + meatCoinAmount.toFixed(2) + ',' + meatCoinGoldValue.toFixed(2));
+
+    server.Stats.volume.bought += meatCoinAmount;
+
+    response.Broadcast.bought(message.channel, trader.tag, meatCoinAmount, meatCoinGoldValue);
 }
 
-function mineStop(message) {
-    const id = message.member.user.id;
-    var response = '<@' + id + '>';
+function sell(message, rawMeatCoinAmount) {
+    const trader = validation.checkRegistered(message.channel, message.member.user.tag);
+    if (!trader) return;
 
-    // check user registration
-    if (!(id in ledger)) {
-        message.channel.send(response + ', you are not registered.');
-        return;
-    }
+    const meatCoinAmount = validation.checkMeatCoinAmount(message.channel, trader, rawMeatCoinAmount);
+    if (!meatCoinAmount) return;
 
-    // update user channel
-    var userData = ledger[id];
-    userData.channel = message.channel;
+    const traderHasFunds = validation.checkMeatBalance(message.channel, trader, meatCoinAmount);
+    if (!traderHasFunds) return;
 
-    // stop mining
-    if (!userData.isMining)
-        response += ', you are already not mining.';
-    else {
-        userData.isMining = false;
-        response = '```glsl\n' + userData.username;
-        response += ' has stopped mining.';
-        response += '```';
-    }
+    const meatCoinGoldValue = meatCoinAmount * server.Data.price;
+    trader.gold += meatCoinGoldValue;
+    trader.meat -= meatCoinAmount;
 
-    message.channel.send(response);
-}
+    if (trader.history.length > 9)
+        trader.history.pop();
+    trader.history.unshift('s' + ',' + meatCoinAmount.toFixed(2) + ',' + meatCoinGoldValue.toFixed(2));
 
-function buy(message, coinage) {
-    const id = message.member.user.id;
-    var response = '<@' + id + '>';
+    server.Stats.volume.sold += meatCoinAmount;
 
-    // check user registration
-    if (!(id in ledger)) {
-        message.channel.send(response + ', you are not registered.');
-        return;
-    }
-
-    // update user channel
-    var userData = ledger[id];
-    userData.channel = message.channel;
-
-    // check valid number
-    if (isNaN(coinage) && coinage != 'max') {
-        message.channel.send(response + ', that is an invalid number.');
-        return;
-    }
-
-    // check for max
-    var amount;
-    if (coinage == 'max')
-        amount  = (userData.gold / price) * (1 - fee);
-    else
-        amount = parseFloat(coinage);
-
-    // check valid amount
-    if (amount <= 0.0) {
-        message.channel.send(response + ', that is an invalid amount.');
-        return;
-    }
-
-    // check user funds
-    const value = (1.0 + fee) * (amount * price);
-    if (userData.gold < value) {
-        message.channel.send(response + ', you have insufficient funds. ' + value + ' gold is required.');
-        return;
-    }
-
-    // ledger
-    userData.gold -= value;
-    userData.meatCoin += amount;
-    response = '```glsl\n' + userData.username;
-    response += ' bought ' + amount + ' MeatCoin for ';
-    response +=  value.toFixed(2) + ' gold @ ' + price.toFixed(2) + ' gold.';
-    response += '```';
-
-    // history
-    if (userData.history.length > 9)
-        userData.history.pop();
-    userData.history.unshift('b' + ',' + amount.toFixed(2) + ',' + price.toFixed(2));
-
-    // statistics
-    volume.bought += amount;
-
-    message.channel.send(response);
-}
-
-function sell(message, coinage) {
-    const id = message.member.user.id;
-    var response = '<@' + id + '>';
-
-    // check user registration
-    if (!(id in ledger)) {
-        message.channel.send(response + ', you are not registered.');
-        return;
-    }
-
-    // update user channel
-    var userData = ledger[id];
-    userData.channel = message.channel;
-
-    // check valid number
-    if (isNaN(coinage) && coinage != 'max') {
-        message.channel.send(response + ', that is an invalid number.');
-        return;
-    }
-
-    // check for max
-    var amount;
-    if (coinage == 'max')
-        amount = userData.meatCoin;
-    else
-        amount = parseFloat(coinage);
-
-    // check valid amount
-    if (amount <= 0.0) {
-        message.channel.send(response + ', that is an invalid amount.');
-        return;
-    }
-
-    // check user funds
-    if (userData.meatCoin < amount) {
-        message.channel.send(response + ', you do not have that much MeatCoin.');
-        return;
-    }
-
-    // ledger
-    const value = (1.0 - fee) * (amount * price);
-    userData.gold += value;
-    userData.meatCoin -= amount;
-    response = '```glsl\n' + userData.username;
-    response += ' sold ' + amount + ' MeatCoin for ' + value.toFixed(2) + ' gold ';
-    response += '@ ' + price.toFixed(2) + ' gold.'
-    response += '```';
-
-    // history
-    if (userData.history.length > 9)
-        userData.history.pop();
-    userData.history.unshift('s' + ',' + amount.toFixed(2) + ',' + price.toFixed(2));
-
-
-    // statistics
-    volume.sold += amount;
-
-    message.channel.send(response);
+    response.Broadcast.sold(message.channel, trader.tag, meatCoinAmount, meatCoinGoldValue);
 }
 
 function diceRules(message) {
-    var response = '```glsl\nEach player rols two dice. The player with the higher value wins.\n';
-    response += 'From highest to lowest: \n\t21, 66, 55, 44, 33, 22, 11';
-    response +=  '\n\t65, 64, 63, 62, 61, 54, 53';
-    response += '\n\t52, 51, 43, 42, 41, 32, 31```';
-    message.channel.send(response);
+    const trader = validation.checkRegistered(message.channel, message.member.user.tag);
+    if (!trader) return;
+
+    response.Broadcast.diceRules(message.channel);
 }
 
 function flipRules(message) {
-    var response = '```Call ribs/loins. Flip the MeatCoin. Meat your maker!```';
-    message.channel.send(response);
+    const trader = validation.checkRegistered(message.channel, message.member.user.tag);
+    if (!trader) return;
+
+    response.Broadcast.flipRules(message.channel);
 }
 
-function renderPriceChart(message) {
-    render.line_chart(message, priceHistory, serverStartTime);
-}
+function flip(message, sideGuess, rawMeatCoinAmount) {
+    const trader = validation.checkRegistered(message.channel, message.member.user.tag);
+    if (!trader) return;
 
-function flip(message, side, coinage) {
-    const id = message.member.user.id;
-    var response = '<@' + id + '>';
+    const isValidSide = validation.checkFlipSide(message.channel, sideGuess);
+    if (!isValidSide) return;
 
-    // check user registration
-    if (!(id in ledger)) {
-        message.channel.send(response + ', you are not registered.');
-        return;
-    }
+    const meatCoinAmount = validation.checkMeatCoinAmount(message.channel, trader, rawMeatCoinAmount);
+    if (!meatCoinAmount) return;
 
-    // update user channel
-    var userData = ledger[id];
-    userData.channel = message.channel;
+    const traderHasFunds = validation.checkMeatBalance(message.channel, trader, meatCoinAmount);
+    if (!traderHasFunds) return;
 
-    // check valid side
-    if (side != 'ribs' && side != 'loins') {
-        message.channel.send(response + ', invalid MeatCoin flip guess (ribs/loins).');
-        return;
-    }
-
-    // check valid number
-    if (isNaN(coinage)) {
-        message.channel.send(response + ', that is an invalid number.');
-        return;
-    }
-
-    // check valid amount
-    const amount = parseFloat(coinage);
-    if (amount <= 0.0) {
-        message.channel.send(response + ', that is an invalid amount.');
-        return;
-    }
-
-    // check user funds
-    if (userData.meatCoin < amount) {
-        message.channel.send(response + ', you do not have that much MeatCoin.');
-        return;
-    }
-
-    // server side flip
-    var flip;
+    var sideServer;
     if (Math.random() > 0.5)
-        flip = 'ribs';
+        sideServer = 'ribs';
     else
-        flip = 'loins';
+        sideServer = 'loins';
 
+    const traderIsSuccessful = sideGuess == sideServer;
+    if (traderIsSuccessful)
+        trader.meat += meatCoinAmount;
+    else
+        trader.meat -= meatCoinAmount;
 
-    // result
-    response = '```glsl\n' + userData.username;
-    if (side == flip) {
-        userData.meatCoin += amount;
-        response += ' has won ' + amount + ' MeatCoin!!!';
-    }
-    else {
-        userData.meatCoin -= amount;
-        response += ' has lost ' + amount + ' MeatCoin. LOL!';
-    }
-    response += '```';
+    server.Stats.volume.gambled += meatCoinAmount;
+    server.jackpot += server.Data.price * meatCoinAmount;
 
-    volume.gambled += amount;
-    message.channel.send(response);
+    response.Broadcast.flipResult(message.channel, trader.tag, traderIsSuccessful, meatCoinAmount);
 }
 
 function hallOfFame(message) {
-    var response = '```glsl\n';
-    response += 'Winner of MeatCoin 2.2: The old razzmataz\n';
-    response += 'Winner of MeatCoin 3, Reloaded: FatalBagel';
-    response += '```';
-    message.channel.send(response);
+    const trader = validation.checkRegistered(message.channel, message.member.user.tag);
+    if (!trader) return;
+
+    response.Broadcast.hallOfFame(message.channel);
 }
 
-function diceChallenge(message, target, coinage) {
-    const id = message.member.user.id;
-    var response = '<@' + id + '>';
+function diceChallenge(message, acceptorTraderTag, rawMeatCoinAmount) {
+    const challengerTrader = validation.checkRegistered(message.channel, message.member.user.tag);
+    if (!challengerTrader) return;
 
-    // check user registration
-    if (!(id in ledger)) {
-        message.channel.send(response + ', you are not registered.');
-        return;
-    }
+    const meatCoinAmount = validation.checkMeatCoinAmount(message.channel, challengerTrader, rawMeatCoinAmount);
+    if (!meatCoinAmount) return;
 
-    // update user channel
-    var userData = ledger[id];
-    userData.channel = message.channel;
+    const traderHasFunds = validation.checkMeatBalance(message.channel, challengerTrader, meatCoinAmount);
+    if (!traderHasFunds) return;
 
-    // check valid number
-    if (isNaN(coinage)) {
-        message.channel.send(response + ', that is an invalid number.');
-        return;
-    }
+    const isNotSelfChallenging = validation.checkNotSelfChallenge(message.channel, challengerTrader, acceptorTraderTag);
+    if (!isNotSelfChallenging) return;
 
-    // check valid amount
-    const amount = parseFloat(coinage);
-    if (amount <= 0.0) {
-        message.channel.send(response + ', that is an invalid amount.');
-        return;
-    }
+    const acceptorTrader = validation.checkExistence(message.channel, acceptorTraderTag);
+    if (!acceptorTrader) return;
 
-    // check user funds
-    if (userData.meatCoin < amount) {
-        message.channel.send(response + ', you do not have that much MeatCoin.');
-        return;
-    }
-
-    // check for self challenge
-    if (userData.username == target) {
-        message.channel.send(response + ', you can not challenge yourself.');
-        return;
-    }
-
-    // find target in ledger
-    var foundTarget = false;
-    var targetID;
-    if (Object.keys(ledger).length > 0) {
-        Object.keys(ledger).forEach(function(key) {
-            if (ledger[key].username == target) {
-                foundTarget = true;
-                targetID = key;
-            }
-        });
-    }
-
-    // check if target found
-    if (!foundTarget) {
-        message.channel.send(response + ', invalid username (case-sensitive).');
-        return;
-    }
-
-    betTable[id] = {
-        target: target,
-        bet: amount
+    betTable[challengerTrader.tag] = {
+        acceptor: acceptorTrader,
+        bet: meatCoinAmount
     };
 
-    response = '<@' + targetID + '>';
-    response += ', ' + userData.username + ' challenged you to dice @ ' + amount + ' MeatCoin.';
-
-    message.channel.send(response);
+    response.Notification.diceChallenge(getChannel(acceptorTrader.channelId), challengerTrader.tag, acceptorTrader.id, meatCoinAmount);
 }
 
-function diceAccept(message, target, coinage) {
-    const id = message.member.user.id;
-    var response = '<@' + id + '>';
+function diceAccept(message, challengerTraderTag, rawMeatCoinAmount) {
+    const acceptorTrader = validation.checkRegistered(message.channel, message.member.user.tag);
+    if (!acceptorTrader) return;
 
-    // check user registration
-    if (!(id in ledger)) {
-        message.channel.send(response + ', you are not registered.');
-        return;
-    }
+    const challengerTrader = validation.checkExistence(message.channel, challengerTraderTag);
+    if (!challengerTrader) return;
 
-    // update user channel
-    var userData = ledger[id];
-    userData.channel = message.channel;
+    const meatCoinAmount = validation.checkMeatCoinAmount(message.channel, acceptorTrader, rawMeatCoinAmount);
+    if (!meatCoinAmount) return;
 
-    // check valid number
-    if (isNaN(coinage)) {
-        message.channel.send(response + ', that is an invalid number.');
-        return;
-    }
+    const challengerHasFunds = validation.checkMeatBalance(message.channel, challengerTrader, meatCoinAmount);
+    if (!challengerHasFunds) return;
 
-    // check valid amount
-    const amount = parseFloat(coinage);
-    if (amount <= 0.0) {
-        message.channel.send(response + ', that is an invalid amount.');
-        return;
-    }
+    const acceptorHasFunds = validation.checkMeatBalance(message.channel, acceptorTrader, meatCoinAmount);
+    if (!acceptorHasFunds) return;
 
-    // check user funds
-    if (userData.meatCoin < amount) {
-        message.channel.send(response + ', you do not have that much MeatCoin.');
-        return;
-    }
+    const betRequest = betTable[challengerTrader.tag];
 
-    // find target in ledger
-    // check if user was challenged by target
-    var foundTarget = false;
-    var wasChallenged = false;
-    var sameBet = false;
-    var enoughMC = false;
-    var targetID;
-    if (Object.keys(ledger).length > 0) {
-        Object.keys(ledger).forEach(function(key) {
-            if (ledger[key].username == target) {
-                foundTarget = true;
-                targetID = key;
+    const doesChallengeExist = validation.checkChallengeExistence(message.channel, acceptorTrader, challengerTrader, betRequest);
+    if (!doesChallengeExist) return;
 
-                // check if user was challenged by target
-                if (betTable[targetID] != null) {
-                    if (betTable[targetID].target == userData.username)
-                        wasChallenged = true;
+    const doBetsMatch = validation.checkBetsMatch(message.channel, betRequest.bet, meatCoinAmount);
+    if (!doBetsMatch) return;
 
-                    // check that bets match
-                    if (betTable[targetID].bet == amount)
-                        sameBet = true;
-
-                    // check that target still has enough meat coin
-                    if (ledger[targetID].meatCoin >= amount)
-                        enoughMC = true;
-                }
-            }
-        });
-    }
-
-    // check if target found
-    if (!foundTarget) {
-        message.channel.send(response + ', invalid username (case-sensitive).');
-        return;
-    }
-
-    // check if user was challenged by target
-    if (!wasChallenged) {
-        message.channel.send(response + ', that user has not challenged you.');
-        return;
-    }
-
-    // check that the bets match
-    if (!sameBet) {
-        message.channel.send(response + ', that was not the offered bet.');
-        return;
-    }
-
-    // check that target still has enough meat coin
-    if (!enoughMC) {
-        message.channel.send(response + ', that user no longer has enough MeatCoin. Bet invalidated.');
-        delete betTable[targetID];
-        return;
-    }
-
-    var targetOutcome = '```glsl\n';
+    // d-d-d-d-d-duel!!!!
     // challenger roll
-    const targetRollA = Math.floor((Math.random() * 6) + 1)
-    const targetRollB = Math.floor((Math.random() * 6) + 1)
-    var targetRoll;
-    if (targetRollA > targetRollB)
-        targetRoll = targetRollA.toString() + targetRollB.toString();
-    else
-        targetRoll = targetRollB.toString() + targetRollA.toString();
-    if (targetRoll == '21')
-        targetOutcome += target + ' rolls a MIA!!!\n';
-    else
-        targetOutcome += target + ' rolls a ' + targetRoll[0] + ' ' + targetRoll[1] + '\n';
-    targetOutcome += '```';
-    message.channel.send(targetOutcome);
+    const challengerRoll = diceRoll();
+    response.Broadcast.diceRoll(message.channel, challengerTrader, challengerRoll);
 
-    // add suspense for second dice roll
-    var userRoll;
+    // rival roll with suspense
+    const acceptorRoll = diceRoll();
     setTimeout(function() {
-        var userOutcome = '```glsl\n';
-        // accepter roll
-        const userRollA = Math.floor((Math.random() * 6) + 1);
-        const userRollB = Math.floor((Math.random() * 6) + 1);
-        if (userRollA > userRollB)
-            userRoll = userRollA.toString() + userRollB.toString();
-        else
-            userRoll = userRollB.toString() + userRollA.toString();
-        if (userRoll == '21')
-            userOutcome += userData.username + ' rolls a MIA!!!\n';
-        else
-            userOutcome += userData.username + ' rolls a ' + userRoll[0] + ' ' + userRoll[1] + '\n';
-        userOutcome += '```';
-        message.channel.send(userOutcome);
+        response.Broadcast.diceRoll(message.channel, acceptorTrader, acceptorRoll);
     }, 3000);
 
-    // add suspense for result
+    // calulate result with suspense
     setTimeout(function() {
-        outcome = '```glsl\n';
-        // result
-        if (diceTable[targetRoll] > diceTable[userRoll]) {
-            outcome += target + ' wins ' + amount + ' MeatCoin!!!';
-            ledger[targetID].meatCoin += amount;
-            ledger[id].meatCoin -= amount;
+        var outcome = '';
+        if (diceTable[acceptorRoll] > diceTable[challengerRoll]) {
+            outcome += acceptorTrader.tag + ' wins ' + meatCoinAmount + ' MeatCoin!!!';
+            challengerTrader.meat -= meatCoinAmount;
+            acceptorTrader.meat += meatCoinAmount;
         }
-        else if (diceTable[targetRoll] < diceTable[userRoll]) {
-            outcome += userData.username + ' wins ' + amount + ' MeatCoin!!!';
-            ledger[targetID].meatCoin -= amount;
-            ledger[id].meatCoin += amount;
+        else if (diceTable[acceptorRoll] < diceTable[challengerRoll]) {
+            outcome += challengerTrader.tag + ' wins ' + meatCoinAmount + ' MeatCoin!!!';
+            challengerTrader.meat += meatCoinAmount;
+            acceptorTrader.meat -= meatCoinAmount;
         }
         else
             outcome += 'Tie! Whoever posts the best meme wins!';
-        outcome += '```';
-        message.channel.send(outcome);
+
+        response.Broadcast.diceResult(message.channel, outcome);
     }, 6000);
 
-    delete betTable[targetID];
-    volume.gambled += amount;
+    delete betTable[challengerTrader.tag];
+    server.Stats.volume.gambled += meatCoinAmount;
+    server.Stats.jackpot += server.Data.price * meatCoinAmount;
 }
 
-function sendUser(message, target, coinage) {
-    const id = message.member.user.id;
-    var response = '<@' + id + '>';
+function diceRoll() {
+    const rollA = Math.floor((Math.random() * 6) + 1)
+    const rollB = Math.floor((Math.random() * 6) + 1)
 
-    // check user registration
-    if (!(id in ledger)) {
-        message.channel.send(response + ', you are not registered.');
-        return;
-    }
-
-    // update user channel
-    var userData = ledger[id];
-    userData.channel = message.channel;
-
-    // check valid number
-    if (isNaN(coinage)) {
-        message.channel.send(response + ', that is an invalid number.');
-        return;
-    }
-
-    // check valid amount
-    const amount = parseFloat(coinage);
-    if (amount <= 0.0) {
-        message.channel.send(response + ', that is an invalid amount.');
-        return;
-    }
-
-    // check user funds
-    if (userData.meatCoin < amount) {
-        message.channel.send(response + ', you do not have that much MeatCoin.');
-        return;
-    }
-
-    // check for self send
-    if (userData.username == target) {
-        message.channel.send(response + ', you can not send to your self.');
-        return;
-    }
-
-    // find target in ledger
-    var foundTarget = false;
-    var targetID;
-    if (Object.keys(ledger).length > 0) {
-        Object.keys(ledger).forEach(function(key) {
-            if (ledger[key].username == target) {
-                foundTarget = true;
-                targetID = key;
-            }
-        });
-    }
-
-    // check if target found
-    if (!foundTarget) {
-        message.channel.send(response + ', invalid username (case-sensitive).');
-        return;
-    }
-
-    response = '<@' + targetID + '>';
-    userData.meatCoin -= amount;
-    ledger[targetID].meatCoin += amount;
-    response += ', ' + userData.username + ' has sent you ' + amount + ' MeatCoin.';
-
-    message.channel.send(response);
+    if (rollA > rollB)
+        return rollA.toString() + rollB.toString();
+    else
+        return rollB.toString() + rollA.toString();
 }
 
-function gaussian(mean, stdev) {
-    var y2;
-    var use_last = false;
-    return function() {
-        var y1;
-        if(use_last) {
-           y1 = y2;
-           use_last = false;
-        }
-        else {
-            var x1, x2, w;
-            do {
-                 x1 = 2.0 * Math.random() - 1.0;
-                 x2 = 2.0 * Math.random() - 1.0;
-                 w  = x1 * x1 + x2 * x2;
-            } while( w >= 1.0);
-            w = Math.sqrt((-2.0 * Math.log(w))/w);
-            y1 = x1 * w;
-            y2 = x2 * w;
-            use_last = true;
-       }
+function sendUser(message, receiverTraderId, rawMeatCoinAmount) {
+    const senderTrader = validation.checkRegistered(message.channel, message.member.user.tag);
+    if (!senderTrader) return;
 
-       var retval = mean + stdev * y1;
-       if(retval > 0)
-           return retval;
-       return -retval;
-   }
+    const receiverTrader = validation.checkExistence(message.channel, receiverTraderId);
+    if (!receiverTrader) return;
+
+    const isNotSelfSending = validation.checkNotSelfSend(message.channel, senderTrader, receiverTrader);
+    if (!isNotSelfSending) return;
+
+    const meatCoinAmount = validation.checkMeatCoinAmount(message.channel, senderTrader, rawMeatCoinAmount);
+    if (!meatCoinAmount) return;
+
+    const userHasFunds = validation.checkMeatBalance(message.channel, senderTrader, meatCoinAmount);
+    if (!userHasFunds) return;
+
+    senderTrader.meat -= meatCoinAmount;
+    receiverTrader.meat += meatCoinAmount;
+
+    response.Notification.sentGift(getChannel(receiverTrader.channelId), senderTrader.tag, receiverTrader.id, meatCoinAmount);
 }
 
-// ::todo::
-// debt
-// dividends
-// double check buy/sell math
-// add send and gambling to history
-// make fluctuations non random? leaderboards by real gold only. need incentive
-// order leaderboard by real gold
-// price history
-// lottery
-// loans - interest - have to pay back by end of session or lose it all
-// hall of fame: billy won v2.2
-// add debt feature (shorting) loan?
-// mine if registered
-// buy chance cards
-
-// ::notes::
-// the more the price grows, the more it fluctuates
-// but the rate of increase remains the same
-
-// ::ideas::
-// competing economies - who can make the most wealth?
-// cookie crpyto? app
-// cookie coin
-// cookie crypto could be meat coin type simulation
-// or track real market trends (prob not)
+function getChannel(channelId) {
+    return bot.channels.get(channelId);
+}
