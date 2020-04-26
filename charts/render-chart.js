@@ -6,7 +6,7 @@ const lineChartSpecFileName = 'line-chart.spec.json'
 const renderedLineChartFileName = 'price-chart.png';
 
 module.exports = {
-    line_chart: function (message, priceHistory) {
+    line_chart: function (message, priceHistory, serverStartTime) {
         const rootPath = process.cwd();
         const lineChartSpecPath = path.join(rootPath, 'charts', lineChartSpecFileName);
         const renderedLineChartFilePath = path.join(rootPath, 'charts', renderedLineChartFileName);
@@ -18,7 +18,7 @@ module.exports = {
                 return console.log(err);
             }
 
-            console.log('Editing line chart spec...');
+            console.log('Editing line chart data...');
             var lineChartSpecData = JSON.parse(data);
             lineChartSpecData.data[0].values = priceHistory;
 
@@ -35,7 +35,7 @@ module.exports = {
                     }
 
                     console.log('Sending priceChart.png');
-                    message.channel.send('The price history of MeatCoin starting from beginning of the trading session:', {files: [renderedLineChartFilePath]});
+                    message.channel.send("```The price history of MeatCoin starting from " + serverStartTime.toLocaleTimeString() + ".```", {files: [renderedLineChartFilePath]});
                 });
             }).catch(function (err) {
                 console.log("Error rendering PNG: ");
