@@ -11,6 +11,9 @@ const quick = require('./lib/algorithms/quick-select.js');
 const insertion = require('./lib/algorithms/insertion-sort.js');
 const gaussian = require('./lib/algorithms/gaussian-dist.js');
 
+// commands
+const meatpot = require('./lib/commands/meatpot.js');
+
 // remove later?
 const bot = client.bot();
 
@@ -84,6 +87,10 @@ bot.on('message', (message) => {
             flipRules(message);
         else if (command == '!price' && directive == 'chart')
             priceChart(message);
+        else if (command == '!meatpot' && directive == 'rules')
+            meatpot.rules(message);
+        else if (command == '!meatpot' && directive == 'board')
+            meatpot.board(message);
     }
     else if (splitMessage.length == 3) {
         const command = splitMessage[0];
@@ -96,6 +103,7 @@ bot.on('message', (message) => {
             hallOfFame(message);
         else if (command == '!send')
             sendUser(message, directive, coinage);
+        
     }
     else if (splitMessage.length > 3) {
         const command = splitMessage[0];
@@ -107,6 +115,8 @@ bot.on('message', (message) => {
             diceChallenge(message, username, coinage);
         else if (command == '!dice' && directive == 'accept')
             diceAccept(message, username, coinage);
+        else if (command == '!meatpot' && directive == 'check')
+            meatpot.check(message, username, coinage);
     }
     isReady = true;
 });
@@ -413,7 +423,7 @@ function flip(message, sideGuess, rawMeatCoinAmount) {
         trader.meat -= meatCoinAmount;
 
     server.Stats.volume.gambled += meatCoinAmount;
-    server.jackpot += server.Data.price * meatCoinAmount;
+    server.Stats.meatpot += server.Data.price * meatCoinAmount;
 
     response.Broadcast.flipResult(message.channel, trader.tag, traderIsSuccessful, meatCoinAmount);
 }
@@ -505,7 +515,7 @@ function diceAccept(message, challengerTraderTag, rawMeatCoinAmount) {
 
     delete betTable[challengerTrader.tag];
     server.Stats.volume.gambled += meatCoinAmount;
-    server.Stats.jackpot += server.Data.price * meatCoinAmount;
+    server.Stats.meatpot += server.Data.price * meatCoinAmount;
 }
 
 function diceRoll() {

@@ -1,12 +1,12 @@
 {
-  "price": 101.48444771589219,
+  "price": 183.55928985956817,
   "ledger": {
     "gondolier#8354": {
       "id": "111327745430016000",
       "tag": "gondolier#8354",
       "name": "gondolier",
       "channelId": "702643684834803832",
-      "gold": 768.968117863267,
+      "gold": 3613.9681178632673,
       "meat": 11,
       "history": [
         "s,1.00,104.59",
@@ -18,7 +18,7 @@
       "tag": "gondolier#8324",
       "name": "gondolier",
       "channelId": "702643684834803832",
-      "gold": 339.209749181091,
+      "gold": 3082.209749181091,
       "meat": 2,
       "history": []
     },
@@ -27,7 +27,7 @@
       "tag": "gondolier#1354",
       "name": "gondolier",
       "channelId": "702643684834803832",
-      "gold": 469.209749181091,
+      "gold": 2547.209749181091,
       "meat": 3,
       "history": []
     },
@@ -36,7 +36,7 @@
       "tag": "gondolier#8355",
       "name": "gondolier",
       "channelId": "702643684834803832",
-      "gold": 488.209749181091,
+      "gold": 3650.209749181091,
       "meat": 4,
       "history": []
     },
@@ -45,7 +45,7 @@
       "tag": "gondolier#82354",
       "name": "gondolier",
       "channelId": "702643684834803832",
-      "gold": 619.209749181091,
+      "gold": 1525.209749181091,
       "meat": 5,
       "history": []
     },
@@ -54,7 +54,7 @@
       "tag": "gondolier#832344",
       "name": "gondolier",
       "channelId": "702643684834803832",
-      "gold": 600.209749181091,
+      "gold": 3811.209749181091,
       "meat": 19.00000000001,
       "history": []
     },
@@ -63,7 +63,7 @@
       "tag": "meatcointestuser1#4056",
       "name": "meatcointestuser1",
       "channelId": "702643684834803832",
-      "gold": 478.0925,
+      "gold": 2722.0924999999997,
       "meat": 1.1497349520661975,
       "history": [
         "b,1.97,172.76",
