@@ -1,5 +1,5 @@
 # Data
-data/
+data/storage.json
 charts/*.png
 
 # Logs
