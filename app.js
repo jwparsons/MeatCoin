@@ -87,8 +87,8 @@ bot.on('message', (message) => {
             flipRules(message);
         else if (command == '!price' && directive == 'chart')
             priceChart(message);
-        else if (command == '!meatpot' && directive == 'rules')
-            meatpot.rules(message);
+        else if (command == '!meatpot' && directive == 'info')
+            meatpot.info(message);
         else if (command == '!meatpot' && directive == 'board')
             meatpot.board(message);
     }
@@ -419,11 +419,12 @@ function flip(message, sideGuess, rawMeatCoinAmount) {
     const traderIsSuccessful = sideGuess == sideServer;
     if (traderIsSuccessful)
         trader.meat += meatCoinAmount;
-    else
+    else {
         trader.meat -= meatCoinAmount;
+        server.Stats.meatpot += meatCoinAmount;
+    }
 
     server.Stats.volume.gambled += meatCoinAmount;
-    server.Stats.meatpot += server.Data.price * meatCoinAmount;
 
     response.Broadcast.flipResult(message.channel, trader.tag, traderIsSuccessful, meatCoinAmount);
 }
@@ -515,7 +516,7 @@ function diceAccept(message, challengerTraderTag, rawMeatCoinAmount) {
 
     delete betTable[challengerTrader.tag];
     server.Stats.volume.gambled += meatCoinAmount;
-    server.Stats.meatpot += server.Data.price * meatCoinAmount;
+    server.Stats.meatpot += meatCoinAmount;
 }
 
 function diceRoll() {
