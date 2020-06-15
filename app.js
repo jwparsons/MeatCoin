@@ -10,6 +10,7 @@ const validation = require('./lib/service/validation.js');
 const quick = require('./lib/algorithms/quick-select.js');
 const insertion = require('./lib/algorithms/insertion-sort.js');
 const gaussian = require('./lib/algorithms/gaussian-dist.js');
+const storage = require('./lib/data/storage.js');
 
 // commands
 const meatpot = require('./lib/commands/meatpot.js');
@@ -124,7 +125,7 @@ bot.on('message', (message) => {
 function init() {
     console.log('MeatCoin v' + pjson.version);
 
-    server.Data.loadSync();
+    loadData();
     console.log('Price: ' + server.Data.price);
     console.log('Ledger: ' + JSON.stringify(server.Data.ledger, null, 2));
     console.log('');
@@ -137,6 +138,23 @@ function init() {
 
     const token = process.env.MEAT_TOKEN;
     bot.login(token);
+}
+
+function loadData() {
+    const data = storage.loadSync();
+    server.Data.price = data.price;
+    server.Stats.priceHistory = data.priceHistory;
+    server.meatpot.
+}
+
+function saveData() {
+    const data = JSON.stringify({
+        price: price,
+        ledger: ledger,
+        priceHistory: priceHistory,
+        meatpot,
+        meatpotBoard
+    }, null, 2);
 }
 
 function populateDiceTable() {
@@ -162,6 +180,36 @@ function populateDiceTable() {
     diceTable['66'] = 20;
     diceTable['21'] = 21;
 }
+
+function backup() {
+    console.log('Backup begin.');
+    server.Data.saveAsync();
+    console.log('Backup end.\n');
+}
+
+function shutdown() {
+    server.Data.saveSync();
+    process.exit();
+}
+
+process.on('SIGINT', () => {
+    console.log('SIGINT');
+    shutdown();
+});
+
+process.on('SIGTERM', () => {
+    console.log('SIGTERM');
+    shutdown();
+});
+
+process.on('uncaughtException', function(err) {
+    console.log(err.stack);
+    shutdown();
+});
+
+process.on('exit', () => {
+    console.log('exit');
+});
 
 function mine() {
     if (!isReady)
@@ -214,36 +262,6 @@ function fluctuate() {
     console.log('Total Time Market Open: ' + server.elapsedTime);
     console.log('');
 }
-
-function backup() {
-    console.log('Backup begin.');
-    server.Data.saveAsync();
-    console.log('Backup end.\n');
-}
-
-function shutdown() {
-    server.Data.saveSync();
-    process.exit();
-}
-
-process.on('SIGINT', () => {
-    console.log('SIGINT');
-    shutdown();
-});
-
-process.on('SIGTERM', () => {
-    console.log('SIGTERM');
-    shutdown();
-});
-
-process.on('uncaughtException', function(err) {
-    console.log(err.stack);
-    shutdown();
-});
-
-process.on('exit', () => {
-    console.log('exit');
-});
 
 function help(message) {
     response.Broadcast.help(message.channel);
